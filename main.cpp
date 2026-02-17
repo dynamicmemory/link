@@ -8,12 +8,11 @@
 #include <cstring>
 
 class TCPSocket {
-    int fd{-1};
+    int fd;
+    addrinfo *addr;
 
 public: 
     TCPSocket() = default;
-    explicit TCPSocket(int fd) : fd(fd) {}    // Keeping for now, may never use.
-
     ~TCPSocket() { if (fd >= 0) ::close(fd); }
 
     TCPSocket(const TCPSocket &) = delete;
@@ -24,60 +23,41 @@ public:
         rhs.fd = -1;
     }
 
-    void server_socket(const std::string &h, const std::string &p) {
-        struct addrinfo hints, *bind_addr;
+    void open(const std::string &host, const std::string &port) {
+        struct addrinfo hints; 
         memset(&hints, 0, sizeof(hints));
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_flags = AI_PASSIVE;
+        std::cout << "Setting up: " << host << ":" << port << '\n';
 
-        std::cout << "Setting up: " << h << ":" << p << '\n';
-        int status = ::getaddrinfo(h.c_str(), p.c_str(), &hints, &bind_addr);
-        if (status != 0) {
-            throw std::runtime_error(gai_strerror(status));
-        }
+        int status = ::getaddrinfo(host.c_str(), port.c_str(), &hints, &addr);
+        if (status != 0) { throw std::runtime_error(gai_strerror(status)); }
         std::cout << "getaddrinfo was successful" << '\n';
 
-        fd = ::socket(bind_addr->ai_family, 
-                      bind_addr->ai_socktype, 
-                      bind_addr->ai_protocol);
-        if (fd < 0) {
-            throw std::runtime_error("Socket Failed");
-        }
+        int fd = ::socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+        if (fd < 0) { throw std::runtime_error("Socket Failed"); }
         std::cout << "socket was successful, fd: " << fd << '\n';
-
-        bind(bind_addr);
-
-        int listen = ::listen(fd, SOMAXCONN);
-        std::cout << "Listen was successful: " << listen << '\n';
     }
 
-    void bind(addrinfo *bind_addr) {
-        int bindle = ::bind(fd, bind_addr->ai_addr, bind_addr->ai_addrlen);
+    /*Binds a socket to the address contained in the bind_addr param*/
+    void bind() {
+        int bindle = ::bind(fd, addr->ai_addr, addr->ai_addrlen);
         if (bindle != 0) {
             throw std::runtime_error("Bind Failed");
         }
         std::cout << "Bind was successful: " << bindle << '\n';
-        freeaddrinfo(bind_addr);
+        freeaddrinfo(addr);
     }
 
-    int client_socket() { return 1;}
-
-    // Abstract out server and client specific constructor ops into these funcs
-    void accept() {}
-    void connection() {}
-
-    void listen() {}
-
-};
-
-
-#include <string>
-
-class Client {
-    // TCPSocket socket;
-public:
-    Client(const std::string &host, const std::string &port) {}
-        // socket(host, port, true) {}
+    /**/
+    void listen() {
+        int listen = ::listen(fd, SOMAXCONN);
+        std::cout << "Listen was successful: " << listen << '\n';
+    }
+    /**/
+    void connect(addrinfo *connect_addr) { /* Write connect logic*/ }
+    /**/
+    void accept() { /* Write accept logic*/ }
 };
 
 
@@ -85,17 +65,37 @@ public:
 #include <vector>
 
 class Server {
-    TCPSocket listener;
+    TCPSocket socket;
     std::vector<TCPSocket> sockets;
     std::string host;
     std::string port;
     std::string protocol;
-    // IProtocol protocol;
 public:
-    Server(const std::string &host, const std::string &port, const std::string &protocol) {
-        listener.server_socket(host, port);
+    Server(const std::string &h, const std::string &p, const std::string &protocol) {
+        socket.open(h, p);
+        socket.bind();
+        socket.listen();
     }
 };
+
+
+
+
+
+
+
+
+#include <string>
+
+class Client {
+    TCPSocket socket;
+public:
+    Client(const std::string &host, const std::string &port) {}
+
+};
+
+
+
 
 
 #include <string>

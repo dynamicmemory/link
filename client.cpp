@@ -1,8 +1,11 @@
+/////////////////////////////// TCPSocket ////////////////////////////////////
+
 #include <iostream>
 #include <string>
 #include <netdb.h>
 #include <unistd.h>
 #include <cstring>
+
 
 class TCPSocket {
     int fd = -1;
@@ -40,6 +43,16 @@ public:
     TCPSocket(TCPSocket &&rhs) { 
         fd = rhs.fd; 
         rhs.fd = -1;
+    }
+
+    TCPSocket &operator=(TCPSocket &&rhs) {
+        if (this == &rhs) return *this;
+        if (fd > 0) {
+            ::close(fd);
+            fd = rhs.fd;
+            rhs.fd = -1;
+        }
+        return *this;
     }
 
     static TCPSocket server_socket(const std::string &host, const std::string &port) {
@@ -101,8 +114,16 @@ public:
 
     ssize_t send_all() { /*Write send_all logic*/ return 0; }
     ssize_t recieve_all() { /*Write send_all logic*/ return 0; }
+
+    int get_fd() { return fd; }
 };
 
+//////////////////////////////////// CONNECTION ///////////////////////////////
+
+
+class Connection {};
+
+/////////////////////////////////// SERVER ///////////////////////////////////
 
 #include <string>
 #include <vector>
@@ -110,19 +131,75 @@ public:
 
 class Server {
     TCPSocket socket;
-    std::vector<TCPSocket> clients;
+    std::vector<TCPSocket> connections;
     std::string host;
     std::string port;
     std::string protocol;
 public:
     Server(const std::string &h, const std::string &p, const std::string &protocol) : 
         socket(TCPSocket::server_socket(h, p)) {
-        socket.listen();
-
-        socket.accept_client();
         }
+
+    void start_server() {
+        socket.listen();
+        socket.accept_client();
+
+        fd_set master;
+        int max_fd = socket.get_fd();
+        
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 100000;
+
+        while (1) {
+            fd_set fds = master;
+            if (select(max_fd+1, &fds, 0, 0, &timeout) < 0) {
+                throw std::runtime_error("select failed");
+            }
+
+            for (int fd=0; fd<=max_fd; ++fd) {
+                if (!FD_ISSET(fd, &fds)) continue;
+
+                // Client connecting to the server
+                if (fd == socket.get_fd()) {
+                    TCPSocket new_client = socket.accept_client();
+                    // failed to connect, might not need check due to throw.
+                    if (new_client.get_fd() < 0) continue; 
+                    connections.push_back(std::move(new_client));
+                    FD_SET(new_client.get_fd(), &master);
+                    if (new_client.get_fd() > max_fd) max_fd = new_client.get_fd();
+
+                }
+                else {
+                    ssize_t total = 1024;
+                    char buf[total];
+                    ssize_t n = ::recv(fd,buf,total,0);
+
+                    // Client disconnecting 
+                    if (n == 0) {
+                        // Consider using find instead of the loop
+                        for (auto it=connections.begin(); it != connections.end(); ++it)
+                            if (it->get_fd() == fd) it = connections.erase(it);
+
+                        FD_CLR(fd, &master);
+                        if (fd == max_fd)
+                            while (max_fd >= 0 && !FD_ISSET(max_fd, &fds))
+                                max_fd--;
+                    }
+                    // Client sending a request
+                    continue;
+                }
+            }
+        }
+    }
+
+    void connect() {}
+    // void add_client(TCPSocket client_socket) {
+    //     connections.push_back(client_socket.get_fd())
+    // }
 };
 
+//////////////////////////////// CLINET //////////////////////////////////////
 
 #include <string>
 
@@ -133,18 +210,7 @@ public:
         socket(TCPSocket::client_socket(host, port)) {}
 };
 
-/* Interface for a protocol for a server */
-class IProtocol {
-public: 
-};
-
-
-/* Simple byte based protocol with a prelength message assigned, etc. Default 
- * for the library, more protocols will be build once up and running.*/
-class DefaultProtocol : IProtocol {
-public:
-};
-
+///////////////////////////// NETWORK API ///////////////////////////////////
 
 /* Owns the servers and the clients, top level object that exposes basic apis 
  * for a user to use to create and manager network */
@@ -154,6 +220,7 @@ public:
 
 class Network {
     std::vector<std::unique_ptr<Server>> servers;
+    std::vector<std::unique_ptr<Client>> clients;
 
 public:
     Network() {}
@@ -163,7 +230,14 @@ public:
     }
 
     void create_client(const std::string &host, const std::string &port) {
-        Client(host, port);
+        clients.push_back(std::make_unique<Client>(Client(host, port)));
+        while (1) ;
+
+    }
+
+    void start_server() {
+        // Hard coded only first server for now.
+        servers[0]->start_server();
     }
 
     void send() {}
@@ -180,23 +254,10 @@ int main(int argc, char **argv) {
     std::string host = "127.0.0.1";
     std::string port = "4444";
 
-    n.create_client(host, port); 
+    // n.create_server(host, port, "protocol");
+    // n.start_server();
+    n.create_client(host, port);
+    
 
     return 0;
 }
-
-
-class Connection {
-public: 
-};
- 
-
-class Listener {
-public: 
-};
-
-
-class Transport {
-public: 
-};
-

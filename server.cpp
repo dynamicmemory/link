@@ -1,8 +1,11 @@
+/////////////////////////////// TCPSocket ////////////////////////////////////
+
 #include <iostream>
 #include <string>
 #include <netdb.h>
 #include <unistd.h>
 #include <cstring>
+
 
 class TCPSocket {
     int fd = -1;
@@ -115,6 +118,12 @@ public:
     int get_fd() { return fd; }
 };
 
+//////////////////////////////////// CONNECTION ///////////////////////////////
+
+
+class Connection {};
+
+/////////////////////////////////// SERVER ///////////////////////////////////
 
 #include <string>
 #include <vector>
@@ -122,7 +131,7 @@ public:
 
 class Server {
     TCPSocket socket;
-    std::vector<TCPSocket> clients;
+    std::vector<TCPSocket> connections;
     std::string host;
     std::string port;
     std::string protocol;
@@ -156,7 +165,7 @@ public:
                     TCPSocket new_client = socket.accept_client();
                     // failed to connect, might not need check due to throw.
                     if (new_client.get_fd() < 0) continue; 
-                    clients.push_back(std::move(new_client));
+                    connections.push_back(std::move(new_client));
                     FD_SET(new_client.get_fd(), &master);
                     if (new_client.get_fd() > max_fd) max_fd = new_client.get_fd();
 
@@ -169,13 +178,14 @@ public:
                     // Client disconnecting 
                     if (n == 0) {
                         // Consider using find instead of the loop
-                        for (auto it=clients.begin(); it != clients.end(); ++it)
-                            if (it->get_fd() == fd) it = clients.erase(it);
+                        for (auto it=connections.begin(); it != connections.end(); ++it)
+                            if (it->get_fd() == fd) it = connections.erase(it);
 
                         FD_CLR(fd, &master);
                         if (fd == max_fd)
                             while (max_fd >= 0 && !FD_ISSET(max_fd, &fds))
                                 max_fd--;
+                        std::cerr << "Client has disconnected" << "\n";
                     }
                     // Client sending a request
                     continue;
@@ -183,8 +193,14 @@ public:
             }
         }
     }
+
+    void connect() {}
+    // void add_client(TCPSocket client_socket) {
+    //     connections.push_back(client_socket.get_fd())
+    // }
 };
 
+//////////////////////////////// CLINET //////////////////////////////////////
 
 #include <string>
 
@@ -195,18 +211,7 @@ public:
         socket(TCPSocket::client_socket(host, port)) {}
 };
 
-/* Interface for a protocol for a server */
-class IProtocol {
-public: 
-};
-
-
-/* Simple byte based protocol with a prelength message assigned, etc. Default 
- * for the library, more protocols will be build once up and running.*/
-class DefaultProtocol : IProtocol {
-public:
-};
-
+///////////////////////////// NETWORK API ///////////////////////////////////
 
 /* Owns the servers and the clients, top level object that exposes basic apis 
  * for a user to use to create and manager network */
@@ -216,6 +221,7 @@ public:
 
 class Network {
     std::vector<std::unique_ptr<Server>> servers;
+    std::vector<std::unique_ptr<Client>> clients;
 
 public:
     Network() {}
@@ -225,7 +231,7 @@ public:
     }
 
     void create_client(const std::string &host, const std::string &port) {
-        Client(host, port);
+        clients.push_back(std::make_unique<Client>(Client(host, port)));
     }
 
     void start_server() {
@@ -253,19 +259,3 @@ int main(int argc, char **argv) {
 
     return 0;
 }
-
-
-class Connection {
-public: 
-};
- 
-
-class Listener {
-public: 
-};
-
-
-class Transport {
-public: 
-};
-

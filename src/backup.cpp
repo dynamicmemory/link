@@ -142,7 +142,7 @@ public:
 
     void start_server() {
         socket.listen();
-        socket.accept_client();
+        // socket.accept_client();
 
         fd_set master;
         int max_fd = socket.get_fd();
@@ -162,19 +162,21 @@ public:
 
                 // Client connecting to the server
                 if (fd == socket.get_fd()) {
+                    std::cout << "New client attempting to connect" << "\n";
                     TCPSocket new_client = socket.accept_client();
                     // failed to connect, might not need check due to throw.
                     if (new_client.get_fd() < 0) continue; 
                     connections.push_back(std::move(new_client));
                     FD_SET(new_client.get_fd(), &master);
                     if (new_client.get_fd() > max_fd) max_fd = new_client.get_fd();
-
+                    std::cout << "New client successfully connected" << "\n";
                 }
                 else {
                     ssize_t total = 1024;
                     char buf[total];
                     ssize_t n = ::recv(fd,buf,total,0);
 
+                    std::cout << "Client sent: " << buf << "\n";
                     // Client disconnecting 
                     if (n == 0) {
                         // Consider using find instead of the loop
@@ -185,6 +187,7 @@ public:
                         if (fd == max_fd)
                             while (max_fd >= 0 && !FD_ISSET(max_fd, &fds))
                                 max_fd--;
+                        std::cerr << "Client has disconnected" << "\n";
                     }
                     // Client sending a request
                     continue;
@@ -231,8 +234,6 @@ public:
 
     void create_client(const std::string &host, const std::string &port) {
         clients.push_back(std::make_unique<Client>(Client(host, port)));
-        while (1) ;
-
     }
 
     void start_server() {
@@ -254,10 +255,9 @@ int main(int argc, char **argv) {
     std::string host = "127.0.0.1";
     std::string port = "4444";
 
-    // n.create_server(host, port, "protocol");
-    // n.start_server();
-    n.create_client(host, port);
-    
+    n.create_server(host, port, "protocol");
+    n.start_server();
+    // n.create_client(host, port);
 
     return 0;
 }

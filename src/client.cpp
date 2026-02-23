@@ -10,6 +10,8 @@ int main(void) {
 
     n.create_client(host, port);
     
+    while (1) ;
+
     return 0;
 }
 

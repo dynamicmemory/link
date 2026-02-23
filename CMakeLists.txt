@@ -5,9 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_library(Network
+    src/tcpsocket.cpp
     src/network.cpp
-    src/server.cpp
-    src/client.cpp
 )
 
 target_include_directories(Network PUBLIC include)

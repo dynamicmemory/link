@@ -8,8 +8,9 @@ int main(void) {
     std::string protocol = "None";
     Network n;
 
-    n.create_server(host, port, protocol);
-    
+    int listening = n.create_server(host, port, protocol);
+    n.start_server(listening);
+
 
     return 0;
 }

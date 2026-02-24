@@ -1,8 +1,7 @@
 #pragma once 
-
 #include <string>
-#include <memory>
-#include <vector>
+#include "server.hpp"
+#include "client.hpp"
 
 class Network {
 private:
@@ -10,9 +9,9 @@ private:
 public:
     Network();
 
-    int create_server(const std::string &host, const std::string &port, const std::string &protocol);
+    Server create_server(const std::string &host, const std::string &port, const std::string &protocol);
 
-    void create_client(const std::string &host, const std::string &port);
+    Client create_client(const std::string &host, const std::string &port);
 
     void start_server(int);
 

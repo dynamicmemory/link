@@ -7,18 +7,20 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_library(Network
     src/tcpsocket.cpp
     src/network.cpp
+    src/server.cpp
+    src/client.cpp
 )
 
 target_include_directories(Network PUBLIC include)
 
-add_executable(server
-    src/server.cpp
+add_executable(server_main
+    src/server_main.cpp
 )
 
-add_executable(client
-    src/client.cpp
+add_executable(client_main
+    src/client_main.cpp
 )
 
-target_link_libraries(server PRIVATE Network)
-target_link_libraries(client PRIVATE Network)
+target_link_libraries(server_main PRIVATE Network)
+target_link_libraries(client_main PRIVATE Network)
 

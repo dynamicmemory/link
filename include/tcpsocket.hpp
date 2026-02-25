@@ -1,13 +1,14 @@
+#pragma once
 #include <string>
 #include <netdb.h>
 #include <unistd.h>
 
 class TCPSocket {
 private:
-    int fd;
+    int fd_;
 
-    static addrinfo *address(const std::string &, const std::string &, bool);
-    static int make_socket(addrinfo *);
+    static addrinfo *address_(const std::string &, const std::string &, bool);
+    static int socket_(addrinfo *);
 
 public: 
     explicit TCPSocket(int);
@@ -22,12 +23,12 @@ public:
     static TCPSocket client_socket(const std::string &, const std::string &);
 
     void listen_socket();
-    TCPSocket accept_client();
+    static TCPSocket accept_client(int);
 
     ssize_t send_all(); 
     ssize_t recieve_all();
 
-    int get_fd();
+    int fd();
 };
 
 

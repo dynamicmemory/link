@@ -11,7 +11,7 @@ int main(void) {
 
     // Probably should auto create a client rather then double call?
     Client client = n.create_client(host, port);
-    client.create_client();
+    // client.create_client();
     
     while (1) ;
 

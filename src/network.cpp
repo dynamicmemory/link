@@ -1,11 +1,6 @@
 #include "network.hpp"
 #include <iostream>
 
-// For sockets specifically
-#include <cstring>
-#include <netdb.h>
-#include <unistd.h>
-
 Network::Network() = default;
 
 Server Network::create_server(const std::string &host, 

@@ -5,25 +5,29 @@
 #include <cstring>
 #include "tcpsocket.hpp"
 
-TCPSocket::TCPSocket(int fd) : fd(fd) {}
-TCPSocket::~TCPSocket() { if (fd >= 0) ::close(fd); }
+// Constructors
+TCPSocket::TCPSocket(int fd) : fd_(fd) {}
+TCPSocket::~TCPSocket() { if (fd_ >= 0) ::close(fd_); 
+    std::cout << fd_ << " has been destoryed" << '\n'; }
 
+// Moves
 TCPSocket::TCPSocket(TCPSocket &&rhs) { 
-    fd = rhs.fd; 
-    rhs.fd = -1;
+    fd_ = rhs.fd_; 
+    rhs.fd_ = -1;
 }
 
 TCPSocket &TCPSocket::operator=(TCPSocket &&rhs) {
     if (this == &rhs) return *this;
-    if (fd >= 0) {
-        ::close(fd);
-        fd = rhs.fd;
-        rhs.fd = -1;
+    if (fd_ >= 0) {
+        ::close(fd_);
+        fd_ = rhs.fd_;
+        rhs.fd_ = -1;
     }
     return *this;
 }
 
-static addrinfo *address(const std::string &host, const std::string &port, bool passive) {
+// Sets up addresses for bind and connect
+addrinfo *TCPSocket::address_(const std::string &host, const std::string &port, bool passive) {
     struct addrinfo hints, *addr; 
     memset(&hints, 0, sizeof(hints));
     hints.ai_socktype = SOCK_STREAM;
@@ -38,7 +42,8 @@ static addrinfo *address(const std::string &host, const std::string &port, bool 
     return addr;
 }
 
-static int make_socket(addrinfo *addr) {
+// Returns a socket
+int TCPSocket::socket_(addrinfo *addr) {
     int fd = ::socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
     if (fd < 0) { throw std::runtime_error("Socket Failed"); }
     std::cout << "socket was successful, fd: " << fd << '\n';
@@ -46,9 +51,10 @@ static int make_socket(addrinfo *addr) {
     return fd;
 }
 
-static TCPSocket server_socket(const std::string &host, const std::string &port) {
-    struct addrinfo *addr = address(host, port, true); 
-    int fd = make_socket(addr);
+// Creates a socket for a server 
+TCPSocket TCPSocket::server_socket(const std::string &host, const std::string &port) {
+    struct addrinfo *addr = address_(host, port, true); 
+    int fd = socket_(addr);
 
     int b = ::bind(fd, addr->ai_addr, addr->ai_addrlen);
     if (b != 0) {
@@ -62,9 +68,10 @@ static TCPSocket server_socket(const std::string &host, const std::string &port)
     return TCPSocket(fd);
 }
 
-static TCPSocket client_socket(const std::string &host, const std::string &port) {
-    struct addrinfo *addr = address(host, port, false); 
-    int fd = make_socket(addr);
+// Creates a socket for a client 
+TCPSocket TCPSocket::client_socket(const std::string &host, const std::string &port) {
+    struct addrinfo *addr = address_(host, port, false); 
+    int fd = socket_(addr);
 
     int c = ::connect(fd, addr->ai_addr, addr->ai_addrlen);
     if (c != 0) {
@@ -80,12 +87,12 @@ static TCPSocket client_socket(const std::string &host, const std::string &port)
 
 /**/
 void TCPSocket::listen_socket() {
-    int listen = ::listen(fd, SOMAXCONN);
+    int listen = ::listen(fd_, SOMAXCONN);
     std::cout << "Listen for connections " << listen << '\n';
 }
 
 /**/
-TCPSocket TCPSocket::accept_client() {
+TCPSocket TCPSocket::accept_client(int fd) {
     std::cout << "Start of accept" << "\n";
     struct sockaddr client_addr;
     socklen_t addr_len = sizeof(client_addr);
@@ -99,12 +106,13 @@ TCPSocket TCPSocket::accept_client() {
 
     std::cout << "Client accepted" << "\n";
     return TCPSocket(client_socket);
-
 }
+
+int TCPSocket::fd() { return fd_; }
 
 ssize_t send_all() { /*Write send_all logic*/ return 0; }
 ssize_t recieve_all() { /*Write send_all logic*/ return 0; }
 
-// int get_fd() { return fd; }
+
 
 

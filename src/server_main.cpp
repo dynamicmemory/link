@@ -10,8 +10,11 @@ int main(void) {
     Network network;
 
     Server server = network.create_server(host, port, protocol);
+    // server.init_();
     server.listening();
-    server.start_server();
+    
+    while (1) 
+        server.tick();
 
     return 0;
 }

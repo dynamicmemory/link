@@ -1,19 +1,24 @@
 #pragma once 
 #include <string>
+#include <queue>
 #include "tcpsocket.hpp"
+#include "message.hpp"
 
 class Client {
 private:
     TCPSocket socket; 
     std::string host;
     std::string port;
+    fd_set master_;
+
+    std::queue<Message> inbox_;
 public:
     Client(const std::string &, const std::string &);
-    // void create_client();
 
+    void init_();
     void tick();
-    void has_message();
-    void next();
+    bool has_message();
+    Message next();
     void send();
     void broadcast();
 };

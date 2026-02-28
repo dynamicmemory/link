@@ -108,9 +108,26 @@ TCPSocket TCPSocket::accept_client(int fd) {
     return TCPSocket(client_socket);
 }
 
+/**/
 int TCPSocket::fd() { return fd_; }
 
-ssize_t send_all() { /*Write send_all logic*/ return 0; }
+/**/
+bool TCPSocket::send_all(const uint8_t *buf, size_t len) { 
+    size_t total = 0;
+
+    while (total < len) {
+        ssize_t n = ::send(fd_, buf+total, len-total, 0);
+        if (n <=0) {
+            if (errno == EINTR) continue;
+            return false;
+        }
+        total += n;
+    }
+    
+    return true;
+}
+
+/**/
 ssize_t recieve_all() { /*Write send_all logic*/ return 0; }
 
 

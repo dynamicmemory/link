@@ -25,7 +25,7 @@ public:
     void listen_socket();
     static TCPSocket accept_client(int);
 
-    ssize_t send_all(); 
+    bool send_all(const uint8_t *, size_t); 
     ssize_t recieve_all();
 
     int fd();

@@ -1,7 +1,8 @@
 #pragma once
-#include <vector>
+
+#include <string>
 
 struct Message {
     int fd;
-    std::vector<char> payload;
+    std::string payload;
 };

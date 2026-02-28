@@ -1,3 +1,4 @@
+#include <iostream>
 #include <string>
 #include "network.hpp"
 #include "client.hpp"
@@ -10,8 +11,16 @@ int main(void) {
 
     Client client = n.create_client(host, port);
     
-    while (1)
+    client.send("Ping");
+    while (1) {
         client.tick();
+        
+        if(client.has_message()) {
+            auto message = client.next();
+            std::cout << message.payload << "\n";
+
+        }
+    }
 
     return 0;
 }

@@ -19,7 +19,8 @@ public:
     void tick();
     bool has_message();
     Message next();
-    void send();
+    void send(const std::string &); 
+    void recieve();
     void broadcast();
 };
 

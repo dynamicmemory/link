@@ -4,6 +4,7 @@
 #include <cstring>
 #include <iostream>
 
+
 /**/
 Server::Server(const std::string &host, const std::string &port) : 
     host(host), port(port), socket(TCPSocket::server_socket(host, port)) {
@@ -42,6 +43,10 @@ void Server::tick() {
 
         // Client connecting to the server
         if (fd == socket.fd()) {
+
+            // IDEA IS TO REPLACE THIS BRANCH WITH 
+            // accept(fd)
+
             std::cout << "New client attempting to connect" << "\n";
 
             // Accept Block
@@ -62,9 +67,13 @@ void Server::tick() {
             // Accept Block end 
         }
         else {
+
+            // IDEA IS TO REPLACE THIS BRANCH WITH 
+            // handle_client(fd)
+
             ssize_t total = 1024;
             char buf[total];
-            ssize_t n = ::recv(fd,buf,total,0);
+            ssize_t n = ::recv(fd,buf,sizeof(buf),0);
 
             // Client disconnecting 
             if (n == 0) {
@@ -83,10 +92,11 @@ void Server::tick() {
             }
 
             // Client sending a request
-            else 
+            else if (n > 0) {
                 std::cout << "Client sent: " << std::string(buf, n) << "\n";
                 // send the clients message to the inbox
-                inbox_.push({fd, std::vector<char>(buf, buf+n)});
+                inbox_.push({fd, std::string(buf, buf+n)});
+            }
         }
     }
 }
@@ -102,3 +112,14 @@ Message Server::next() {
     inbox_.pop();
     return m;
 }
+
+/**/
+void Server::send(int fd, const std::string &buf) {
+    // conversion of string to bytes and calc of size will happen in protocol
+    std::vector<uint8_t> bytes(buf.begin(), buf.end());
+
+    bool status = connections.at(fd).send_all(bytes.data(), bytes.size());
+    if (!status)
+        throw std::runtime_error("Server Send Failed");
+}
+

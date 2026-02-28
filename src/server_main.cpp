@@ -1,3 +1,4 @@
+#include <iostream>
 #include <string>
 #include "network.hpp"
 #include "server.hpp"
@@ -10,11 +11,19 @@ int main(void) {
     Network network;
 
     Server server = network.create_server(host, port, protocol);
-    // server.init_();
     server.listening();
     
-    while (1) 
+    while (1) {
         server.tick();
+
+        if (server.has_message()) {
+            auto message = server.next();
+            std::cout << message.payload << "\n";
+
+            server.send(message.fd, "Pong");
+            std::cout << "Server message sent" << "\n";
+        }
+    }
 
     return 0;
 }

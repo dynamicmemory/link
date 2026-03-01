@@ -21,7 +21,6 @@ int main(void) {
             std::cout << message.payload << "\n";
 
             server.send(message.fd, "Pong");
-            std::cout << "Server message sent" << "\n";
         }
     }
 

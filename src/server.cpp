@@ -4,7 +4,6 @@
 #include <cstring>
 #include <iostream>
 
-
 /**/
 Server::Server(const std::string &host, const std::string &port) : 
     host(host), port(port), socket(TCPSocket::server_socket(host, port)) {
@@ -122,4 +121,3 @@ void Server::send(int fd, const std::string &buf) {
     if (!status)
         throw std::runtime_error("Server Send Failed");
 }
-

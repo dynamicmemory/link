@@ -7,7 +7,7 @@ int main(void) {
 
     std::string host = "127.0.0.1";
     std::string port = "1991";
-    std::string protocol = "None";
+    std::string protocol = "";
     Network network;
 
     Server server = network.create_server(host, port, protocol);
@@ -20,7 +20,7 @@ int main(void) {
             auto message = server.next();
             std::cout << message.payload << "\n";
 
-            server.send(message.fd, "Pong");
+            server.send(message.fd, "I have received your message, how exciting");
         }
     }
 

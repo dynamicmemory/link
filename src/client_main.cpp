@@ -6,12 +6,12 @@
 int main(void) {
     std::string host = "127.0.0.1";
     std::string port = "1991";
-    std::string protocol = "None";
+    std::string protocol = "default";
     Network n;
 
-    Client client = n.create_client(host, port);
+    Client client = n.create_client(host, port, protocol);
     
-    client.send("Ping");
+    client.send("Hello I am the client, I am sending you this message... how exciting");
     while (1) {
         client.tick();
         

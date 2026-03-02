@@ -9,9 +9,13 @@ private:
 public:
     Network();
 
-    Server create_server(const std::string &host, const std::string &port, const std::string &protocol);
+    Server create_server(const std::string &host, 
+                         const std::string &port, 
+                         const std::string &protocol);
 
-    Client create_client(const std::string &host, const std::string &port);
+    Client create_client(const std::string &host, 
+                         const std::string &port,
+                         const std::string &protocol);
 
     void start_server(int);
 

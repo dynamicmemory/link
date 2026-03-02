@@ -2,13 +2,16 @@
 #include <string>
 #include <unordered_map>
 #include <queue>
+#include <memory>
 #include "tcpsocket.hpp"
 #include "message.hpp"
+#include "iprotocol.hpp"
 
 class Server {
 private:
     std::string host;
     std::string port;
+    std::unique_ptr<IProtocol> protocol_;
 
     int server_socket;
     TCPSocket socket;
@@ -19,7 +22,7 @@ private:
 
     std::queue<Message> inbox_;
 public:
-    Server(const std::string &, const std::string &);
+    Server(const std::string &, const std::string &, const std::string &);
     void init_();
 
     void listening();

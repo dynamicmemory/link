@@ -9,6 +9,7 @@ add_library(Network
     src/server.cpp
     src/client.cpp
     src/network.cpp
+    src/defaultprotocol.cpp
 )
 
 target_include_directories(Network PUBLIC include)

@@ -1,12 +1,19 @@
 #include "client.hpp"
+#include "defaultprotocol.hpp"
 #include <netdb.h>
 #include <unistd.h>
 #include <cstring>
 #include <iostream>
 
 /**/
-Client::Client(const std::string &host, const std::string &port) : 
+Client::Client(const std::string &host, const std::string &port, const std::string &protocol) : 
     host(host), port(port), socket(TCPSocket::client_socket(host, port)) {
+    // Add different protocol options as they get build until the weight becomes to heavy
+    if (protocol == "default") 
+        protocol_ = std::make_unique<DefaultProtocol>();
+    else 
+        protocol_ = std::make_unique<DefaultProtocol>();
+
     init_();
     }
 
@@ -35,16 +42,24 @@ void Client::tick() {
     }
 
     if (FD_ISSET(socket.fd(), &fds)) {
-        // Call protocol to decode message from server, if < 1 server disconnect 
-        // if < 0 error, otherwise send on to input for user to use.
-        // Random vars for the time being, protocol will return the buf we return
-        // to the user
-
-        ssize_t total = 1024;
-        char buf[total];
+        ssize_t total = 4096;
+        uint8_t buf[total];
         ssize_t n = ::recv(socket.fd(),buf,sizeof(buf),0);
-        std::cout << "Server sent: " << std::string(buf, n) << "\n";
-        inbox_.push({socket.fd(), std::string(buf, buf+n)});
+
+        if (n == 0) {
+            throw std::runtime_error("Client: Server has disconnected");
+            // TODO: Safely handle shutdown
+        }
+
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) 
+                return;
+            throw std::runtime_error("Client: recv failed");
+        }
+
+        protocol_->decode(buf, n);
+        while (protocol_->has_message()) 
+            inbox_.push({socket.fd(), protocol_->return_message()});
     }
 }
 
@@ -62,7 +77,7 @@ Message Client::next() {
 
 /**/ 
 void Client::send(const std::string &buf) {
-    std::vector<uint8_t> bytes(buf.begin(), buf.end());
+    auto bytes = protocol_->encode(buf);
 
     bool status = socket.send_all(bytes.data(), bytes.size());
     if (!status)

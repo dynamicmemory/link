@@ -6,12 +6,16 @@ Network::Network() = default;
 Server Network::create_server(const std::string &host, 
                               const std::string &port, 
                               const std::string &protocol) {
-    Server server(host, port);
+    std::string proto = protocol.empty() ? "default" : protocol;
+    Server server(host, port, proto);
     return server;
 }
 
-Client Network::create_client(const std::string &host, const std::string &port) {
-    Client client(host, port);
+Client Network::create_client(const std::string &host, 
+                              const std::string &port, 
+                              const std::string &protocol) {
+    std::string proto = protocol.empty() ? "default" : protocol;
+    Client client(host, port, proto);
     return client;
 }
 

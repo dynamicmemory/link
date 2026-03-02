@@ -1,12 +1,19 @@
 #include "server.hpp"
+#include "defaultprotocol.hpp"
 #include <netdb.h>
 #include <unistd.h>
 #include <cstring>
 #include <iostream>
 
 /**/
-Server::Server(const std::string &host, const std::string &port) : 
+Server::Server(const std::string &host, const std::string &port, const std::string &protocol) : 
     host(host), port(port), socket(TCPSocket::server_socket(host, port)) {
+    // Add different protocol options as they get build until the weight becomes to heavy
+    if (protocol == "default") 
+        protocol_ = std::make_unique<DefaultProtocol>();
+    else 
+        protocol_ = std::make_unique<DefaultProtocol>();
+    
     init_();
     }
 
@@ -66,12 +73,11 @@ void Server::tick() {
             // Accept Block end 
         }
         else {
-
             // IDEA IS TO REPLACE THIS BRANCH WITH 
             // handle_client(fd)
 
-            ssize_t total = 1024;
-            char buf[total];
+            ssize_t total = 4096;
+            uint8_t buf[total];
             ssize_t n = ::recv(fd,buf,sizeof(buf),0);
 
             // Client disconnecting 
@@ -81,7 +87,7 @@ void Server::tick() {
                 if (fd == max_fd_)
                     while (max_fd_ >= 0 && !FD_ISSET(max_fd_, &master_))
                         max_fd_--;
-                std::cerr << "Client has disconnected" << "\n";
+                std::cerr << "Sever: Client has disconnected" << "\n";
             }
 
             // Error occured
@@ -92,9 +98,11 @@ void Server::tick() {
 
             // Client sending a request
             else if (n > 0) {
-                std::cout << "Client sent: " << std::string(buf, n) << "\n";
+                // std::cout << "Client sent: " << std::string(buf, n) << "\n";
                 // send the clients message to the inbox
-                inbox_.push({fd, std::string(buf, buf+n)});
+                protocol_->decode(buf, n);
+                while (protocol_->has_message()) 
+                    inbox_.push({fd, protocol_->return_message()});
             }
         }
     }
@@ -114,8 +122,7 @@ Message Server::next() {
 
 /**/
 void Server::send(int fd, const std::string &buf) {
-    // conversion of string to bytes and calc of size will happen in protocol
-    std::vector<uint8_t> bytes(buf.begin(), buf.end());
+    auto bytes = protocol_->encode(buf);
 
     bool status = connections.at(fd).send_all(bytes.data(), bytes.size());
     if (!status)

@@ -11,11 +11,11 @@ public:
 
     Server create_server(const std::string &host, 
                          const std::string &port, 
-                         const std::string &protocol);
+                         const std::string &protocol = "default");
 
     Client create_client(const std::string &host, 
                          const std::string &port,
-                         const std::string &protocol);
+                         const std::string &protocol = "default");
 
     void start_server(int);
 

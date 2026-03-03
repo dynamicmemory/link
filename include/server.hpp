@@ -6,16 +6,18 @@
 #include "tcpsocket.hpp"
 #include "message.hpp"
 #include "iprotocol.hpp"
+#include "connection.hpp"
+
 
 class Server {
 private:
     std::string host;
     std::string port;
-    std::unique_ptr<IProtocol> protocol_;
+    std::string protocol_;
 
     int server_socket;
     TCPSocket socket;
-    std::unordered_map<int, TCPSocket> connections; // Might need to change to client obj
+    std::unordered_map<int, Connection> connections;
 
     fd_set master_;
     int max_fd_;

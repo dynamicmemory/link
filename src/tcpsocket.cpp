@@ -109,7 +109,7 @@ TCPSocket TCPSocket::accept_client(int fd) {
 }
 
 /**/
-int TCPSocket::fd() { return fd_; }
+int TCPSocket::fd() const { return fd_; }
 
 /**/
 bool TCPSocket::send_all(const uint8_t *buf, size_t len) { 
@@ -128,7 +128,9 @@ bool TCPSocket::send_all(const uint8_t *buf, size_t len) {
 }
 
 /**/
-ssize_t recieve_all() { /*Write send_all logic*/ return 0; }
+ssize_t TCPSocket::recieve(uint8_t *buf) { 
+    return ::recv(fd_, buf, sizeof(buf), 0);
+}
 
 
 

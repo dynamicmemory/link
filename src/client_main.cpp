@@ -6,7 +6,7 @@
 int main(void) {
     std::string host = "127.0.0.1";
     std::string port = "1991";
-    std::string protocol = "default";
+    std::string protocol = "sadflkj";
     Network n;
 
     Client client = n.create_client(host, port, protocol);

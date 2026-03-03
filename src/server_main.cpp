@@ -10,7 +10,7 @@ int main(void) {
     std::string protocol = "";
     Network network;
 
-    Server server = network.create_server(host, port, protocol);
+    Server server = network.create_server(host, port);
     server.listening();
     
     while (1) {

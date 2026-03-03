@@ -1,5 +1,6 @@
 #include "server.hpp"
 #include "defaultprotocol.hpp"
+#include "tcptransport.hpp"
 #include <netdb.h>
 #include <unistd.h>
 #include <cstring>
@@ -8,11 +9,7 @@
 /**/
 Server::Server(const std::string &host, const std::string &port, const std::string &protocol) : 
     host(host), port(port), socket(TCPSocket::server_socket(host, port)) {
-    // Add different protocol options as they get build until the weight becomes to heavy
-    if (protocol == "default") 
-        protocol_ = std::make_unique<DefaultProtocol>();
-    else 
-        protocol_ = std::make_unique<DefaultProtocol>();
+
     
     init_();
     }
@@ -62,8 +59,24 @@ void Server::tick() {
             if (client_socket.fd() < 0) {
                 throw std::runtime_error("Accept Failed");
             }
+
             int cfd = client_socket.fd();
-            connections.emplace(cfd, std::move(client_socket));
+            // Abstract to set_protocol function
+            std::unique_ptr<IProtocol> proto;
+            if (protocol_ == "default") 
+                proto = std::make_unique<DefaultProtocol>();
+            else 
+                proto = std::make_unique<DefaultProtocol>();
+
+            // Abstract to set_transport function 
+            std::string transport_ = "tcp";
+            std::unique_ptr<ITransport> transport;
+            if (transport_ == "tcp")
+                transport = std::make_unique<TCPTransport>(std::move(client_socket));
+
+            connections.emplace(cfd, Connection{std::move(transport), 
+                                                std::move(proto)
+                                                });
 
             // failed to connect, might not need check due to throw.
             if (cfd < 0) continue; 
@@ -78,6 +91,7 @@ void Server::tick() {
 
             ssize_t total = 4096;
             uint8_t buf[total];
+            // ssize_t n = TCPSocket::recieve(fd, buf);
             ssize_t n = ::recv(fd,buf,sizeof(buf),0);
 
             // Client disconnecting 
@@ -98,20 +112,18 @@ void Server::tick() {
 
             // Client sending a request
             else if (n > 0) {
-                // std::cout << "Client sent: " << std::string(buf, n) << "\n";
                 // send the clients message to the inbox
-                protocol_->decode(buf, n);
-                while (protocol_->has_message()) 
-                    inbox_.push({fd, protocol_->return_message()});
+                auto &conn = connections.at(fd);
+                conn.protocol->decode(buf, n);
+                while (conn.protocol->has_message()) 
+                    inbox_.push({fd, conn.protocol->return_message()});
             }
         }
     }
 }
 
 /**/
-bool Server::has_message() {
-    return !inbox_.empty();
-}
+bool Server::has_message() { return !inbox_.empty(); }
 
 /**/
 Message Server::next() {
@@ -122,9 +134,10 @@ Message Server::next() {
 
 /**/
 void Server::send(int fd, const std::string &buf) {
-    auto bytes = protocol_->encode(buf);
+    auto &conn = connections.at(fd);
+    auto bytes = conn.protocol->encode(buf);
 
-    bool status = connections.at(fd).send_all(bytes.data(), bytes.size());
+    bool status = conn.transport->send_all(bytes.data(), bytes.size());
     if (!status)
         throw std::runtime_error("Server Send Failed");
 }

@@ -26,9 +26,9 @@ public:
     static TCPSocket accept_client(int);
 
     bool send_all(const uint8_t *, size_t); 
-    ssize_t recieve_all();
+    ssize_t recieve(uint8_t *);
 
-    int fd();
+    int fd() const;
 };
 
 

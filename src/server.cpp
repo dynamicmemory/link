@@ -7,11 +7,12 @@
 #include <iostream>
 
 /**/
-Server::Server(const std::string &host, const std::string &port, const std::string &protocol) : 
-    host(host), port(port), socket(TCPSocket::server_socket(host, port)) {
-
-    
+Server::Server(const std::string &host, const std::string &port, 
+               const std::string &protocol, const std::string &transport) : 
+    host(host), port(port), socket(TCPSocket::server_socket(host, port)), 
+    protocol_(protocol), transport_(transport) {
     init_();
+    listening_();
     }
 
 /**/
@@ -22,7 +23,7 @@ void Server::init_() {
 }
 
 /**/
-void Server::listening() {
+void Server::listening_() {
     int listen = ::listen(socket.fd(), SOMAXCONN);
     std::cout << "Listen for connections " << listen << '\n';
     if (listen < 0) {
@@ -43,82 +44,10 @@ void Server::tick() {
 
     for (int fd=0; fd<=max_fd_; ++fd) {
         if (!FD_ISSET(fd, &fds)) continue;
-
-        // Client connecting to the server
-        if (fd == socket.fd()) {
-
-            // IDEA IS TO REPLACE THIS BRANCH WITH 
-            // accept(fd)
-
-            std::cout << "New client attempting to connect" << "\n";
-
-            // Accept Block
-            TCPSocket client_socket = TCPSocket::accept_client(fd);
-            std::cout << "After accept call" << "\n";
-
-            if (client_socket.fd() < 0) {
-                throw std::runtime_error("Accept Failed");
-            }
-
-            int cfd = client_socket.fd();
-            // Abstract to set_protocol function
-            std::unique_ptr<IProtocol> proto;
-            if (protocol_ == "default") 
-                proto = std::make_unique<DefaultProtocol>();
-            else 
-                proto = std::make_unique<DefaultProtocol>();
-
-            // Abstract to set_transport function 
-            std::string transport_ = "tcp";
-            std::unique_ptr<ITransport> transport;
-            if (transport_ == "tcp")
-                transport = std::make_unique<TCPTransport>(std::move(client_socket));
-
-            connections.emplace(cfd, Connection{std::move(transport), 
-                                                std::move(proto)
-                                                });
-
-            // failed to connect, might not need check due to throw.
-            if (cfd < 0) continue; 
-            FD_SET(cfd, &master_);
-            if (cfd > max_fd_) max_fd_ = cfd; 
-            std::cout << "New client successfully connected" << "\n";
-            // Accept Block end 
-        }
-        else {
-            // IDEA IS TO REPLACE THIS BRANCH WITH 
-            // handle_client(fd)
-
-            ssize_t total = 4096;
-            uint8_t buf[total];
-            // ssize_t n = TCPSocket::recieve(fd, buf);
-            ssize_t n = ::recv(fd,buf,sizeof(buf),0);
-
-            // Client disconnecting 
-            if (n == 0) {
-                FD_CLR(fd, &master_);
-                connections.erase(fd);
-                if (fd == max_fd_)
-                    while (max_fd_ >= 0 && !FD_ISSET(max_fd_, &master_))
-                        max_fd_--;
-                std::cerr << "Sever: Client has disconnected" << "\n";
-            }
-
-            // Error occured
-            else if (n < 0) {
-                if (errno == EINTR) continue;
-                if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
-            }
-
-            // Client sending a request
-            else if (n > 0) {
-                // send the clients message to the inbox
-                auto &conn = connections.at(fd);
-                conn.protocol->decode(buf, n);
-                while (conn.protocol->has_message()) 
-                    inbox_.push({fd, conn.protocol->return_message()});
-            }
-        }
+            // Client connecting to the server
+        if (fd == socket.fd()) accept_client_(fd);
+        // Client sending message
+        else handle_client_(fd);
     }
 }
 
@@ -140,4 +69,68 @@ void Server::send(int fd, const std::string &buf) {
     bool status = conn.transport->send_all(bytes.data(), bytes.size());
     if (!status)
         throw std::runtime_error("Server Send Failed");
+}
+
+/**/ 
+void Server::accept_client_(int fd) {
+    TCPSocket client_socket = TCPSocket::accept_client(fd);
+
+    if (client_socket.fd() < 0) { throw std::runtime_error("Accept Failed"); }
+
+    int cfd = client_socket.fd();
+    // Dont forget, Sets transport and protocol internally using class functions 
+    connections.emplace(cfd, Connection{set_transport_(std::move(client_socket)), 
+                                        set_protocol_() });
+
+    if (cfd < 0) return; 
+    FD_SET(cfd, &master_);
+    if (cfd > max_fd_) max_fd_ = cfd; 
+}
+
+/**/ 
+void Server::handle_client_(int fd) {
+    ssize_t total = 4096;
+    uint8_t buf[total];
+    ssize_t n = connections.at(fd).transport->recieve(buf);
+
+    // Client disconnecting 
+    if (n == 0) {
+        FD_CLR(fd, &master_);
+        connections.erase(fd);
+        if (fd == max_fd_)
+            while (max_fd_ >= 0 && !FD_ISSET(max_fd_, &master_))
+                max_fd_--;
+        std::cerr << "Sever: Client has disconnected" << "\n";
+    }
+
+    // Error occured
+    else if (n < 0) {
+        if (errno == EINTR) return ;
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+    }
+
+    // Client sending a request
+    else if (n > 0) {
+        // send the clients message to the inbox
+        auto &conn = connections.at(fd);
+        conn.protocol->decode(buf, n);
+        while (conn.protocol->has_message()) 
+            inbox_.push({fd, conn.protocol->return_message()});
+    }
+}
+
+/**/
+std::unique_ptr<IProtocol> Server::set_protocol_() {
+    if (protocol_ == "default") 
+        return std::make_unique<DefaultProtocol>();
+    else 
+        return std::make_unique<DefaultProtocol>();
+}
+
+/**/
+std::unique_ptr<ITransport> Server::set_transport_(TCPSocket &&client_socket) {
+    if (transport_ == "tcp")
+        return std::make_unique<TCPTransport>(std::move(client_socket));
+    else 
+        return std::make_unique<TCPTransport>(std::move(client_socket));
 }

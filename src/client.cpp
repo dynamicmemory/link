@@ -1,26 +1,24 @@
 #include "client.hpp"
 #include "defaultprotocol.hpp"
+#include "tcptransport.hpp"
 #include <netdb.h>
 #include <unistd.h>
-#include <cstring>
-#include <iostream>
 
 /**/
-Client::Client(const std::string &host, const std::string &port, const std::string &protocol) : 
-    host(host), port(port), socket(TCPSocket::client_socket(host, port)) {
-    // Add different protocol options as they get build until the weight becomes to heavy
-    if (protocol == "default") 
-        protocol_ = std::make_unique<DefaultProtocol>();
-    else 
-        protocol_ = std::make_unique<DefaultProtocol>();
-
+Client::Client(const std::string &host, 
+               const std::string &port, 
+               const std::string &protocol, 
+               const std::string &transport) : 
+    host(host), port(port), socket(TCPSocket::client_socket(host, port)),
+    protocol_(protocol), transport_(transport) {
     init_();
     }
 
 /**/
 void Client::init_() {
+    connection_ = Connection{set_transport_(std::move(socket)), set_protocol_() };
     FD_ZERO(&master_);
-    FD_SET(socket.fd(), &master_);
+    FD_SET(connection_.fd(), &master_);
     FD_SET(0, &master_);
 }
 
@@ -32,19 +30,19 @@ void Client::tick() {
     timeout.tv_sec = 0;
     timeout.tv_usec = 0;
 
-    if (select(socket.fd()+1, &fds, 0, 0, &timeout) < 0) 
-        throw std::runtime_error("client select failed");
+    if (select(connection_.fd()+1, &fds, 0, 0, &timeout) < 0) 
+        throw std::runtime_error("Client: select failed");
     
     if (FD_ISSET(0, &fds)) {
         // User input something, encode with protocol, send to server 
-        // Thought a user using this lib, would use .send, so perhaps removal
+        // Though a user using this lib, would use .send, so perhaps removal
         // of this clause instead.
     }
 
-    if (FD_ISSET(socket.fd(), &fds)) {
+    if (FD_ISSET(connection_.fd(), &fds)) {
         ssize_t total = 4096;
         uint8_t buf[total];
-        ssize_t n = ::recv(socket.fd(),buf,sizeof(buf),0);
+        ssize_t n = connection_.transport->recieve(buf);
 
         if (n == 0) {
             throw std::runtime_error("Client: Server has disconnected");
@@ -57,9 +55,9 @@ void Client::tick() {
             throw std::runtime_error("Client: recv failed");
         }
 
-        protocol_->decode(buf, n);
-        while (protocol_->has_message()) 
-            inbox_.push({socket.fd(), protocol_->return_message()});
+        connection_.protocol->decode(buf, n);
+        while (connection_.protocol->has_message()) 
+            inbox_.push({connection_.fd(), connection_.protocol->return_message()});
     }
 }
 
@@ -77,9 +75,25 @@ Message Client::next() {
 
 /**/ 
 void Client::send(const std::string &buf) {
-    auto bytes = protocol_->encode(buf);
+    auto bytes = connection_.protocol->encode(buf);
 
-    bool status = socket.send_all(bytes.data(), bytes.size());
+    bool status = connection_.transport->send_all(bytes.data(), bytes.size());
     if (!status)
-        throw std::runtime_error("Client send failed");
+        throw std::runtime_error("Client: send failed");
+}
+
+/**/
+std::unique_ptr<IProtocol> Client::set_protocol_() {
+    if (protocol_ == "default") 
+        return std::make_unique<DefaultProtocol>();
+    else 
+        return std::make_unique<DefaultProtocol>();
+}
+
+/**/
+std::unique_ptr<ITransport> Client::set_transport_(TCPSocket &&socket) {
+    if (transport_ == "tcp")
+        return std::make_unique<TCPTransport>(std::move(socket));
+    else 
+        return std::make_unique<TCPTransport>(std::move(socket));
 }

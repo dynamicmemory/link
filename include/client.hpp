@@ -7,6 +7,7 @@
 #include "message.hpp"
 #include "connection.hpp"
 #include "itransport.hpp"
+#include "imultiplexer.hpp"
 
 class Client {
 private:
@@ -15,6 +16,9 @@ private:
     std::string port;
     std::string protocol_;
     std::string transport_;
+    std::string multistrategy_;
+
+    std::unique_ptr<IMultiplexer> multiplexer_;
 
     fd_set master_;
 
@@ -22,7 +26,7 @@ private:
     std::queue<Message> inbox_;
 public:
     Client(const std::string &, const std::string &, 
-           const std::string &, const std::string &);
+           const std::string &, const std::string &, const std::string &);
 
     void init_();
     void tick();
@@ -34,5 +38,6 @@ public:
     
     std::unique_ptr<IProtocol> set_protocol_();
     std::unique_ptr<ITransport> set_transport_(TCPSocket &&);
+    void set_multiplexer_();
 };
 

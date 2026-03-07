@@ -7,6 +7,7 @@
 #include "message.hpp"
 #include "iprotocol.hpp"
 #include "itransport.hpp"
+#include "imultiplexer.hpp"
 #include "connection.hpp"
 
 class Server {
@@ -15,6 +16,9 @@ private:
     std::string port;
     std::string protocol_;
     std::string transport_;
+    std::string multistrategy_;
+    
+    std::unique_ptr<IMultiplexer> multiplexer_;
 
     int server_socket;
     TCPSocket socket;
@@ -25,7 +29,8 @@ private:
 
     std::queue<Message> inbox_;
 public:
-    Server(const std::string &, const std::string &, const std::string &, const std::string &);
+    Server(const std::string &, const std::string &, 
+           const std::string &, const std::string &, const std::string &);
     void init_();
     void listening_();
 
@@ -42,4 +47,5 @@ public:
 
     std::unique_ptr<IProtocol> set_protocol_();
     std::unique_ptr<ITransport> set_transport_(TCPSocket &&);
+    void set_multiplexer();
 };

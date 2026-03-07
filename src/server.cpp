@@ -1,27 +1,28 @@
 #include "server.hpp"
 #include "defaultprotocol.hpp"
 #include "tcptransport.hpp"
+#include "selectmultiplexer.hpp"
 #include <netdb.h>
 #include <unistd.h>
-#include <cstring>
 #include <iostream>
 
 /**/
 Server::Server(const std::string &host, const std::string &port, 
-               const std::string &protocol, const std::string &transport) : 
+               const std::string &protocol, const std::string &transport,
+               const std::string &multiplexer) : 
     host(host), port(port), socket(TCPSocket::server_socket(host, port)), 
-    protocol_(protocol), transport_(transport) {
+    protocol_(protocol), transport_(transport), multistrategy_(multiplexer) {
     init_();
     listening_();
     }
 
 /**/
 void Server::init_() {
-    FD_ZERO(&master_);
-    FD_SET(socket.fd(), &master_);
-    max_fd_ = socket.fd();
+    set_multiplexer();
+    multiplexer_->add_fd(socket.fd());
 }
 
+// TODO: Needs to move into tcpsocket
 /**/
 void Server::listening_() {
     int listen = ::listen(socket.fd(), SOMAXCONN);
@@ -33,22 +34,13 @@ void Server::listening_() {
 
 /**/
 void Server::tick() {
-    fd_set fds = master_;
-    struct timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 0;
+    multiplexer_->wait(0);
+    if (multiplexer_->ready(socket.fd()))
+        accept_client_(socket.fd());
 
-    if (select(max_fd_+1, &fds, 0, 0, &timeout) < 0) {
-        throw std::runtime_error("select failed");
-    }
-
-    for (int fd=0; fd<=max_fd_; ++fd) {
-        if (!FD_ISSET(fd, &fds)) continue;
-            // Client connecting to the server
-        if (fd == socket.fd()) accept_client_(fd);
-        // Client sending message
-        else handle_client_(fd);
-    }
+    for (auto &[fd, conn] : connections)
+        if (multiplexer_->ready(fd))
+            handle_client_(fd);
 }
 
 /**/
@@ -83,8 +75,7 @@ void Server::accept_client_(int fd) {
                                         set_protocol_() });
 
     if (cfd < 0) return; 
-    FD_SET(cfd, &master_);
-    if (cfd > max_fd_) max_fd_ = cfd; 
+    multiplexer_->add_fd(cfd);
 }
 
 /**/ 
@@ -95,11 +86,8 @@ void Server::handle_client_(int fd) {
 
     // Client disconnecting 
     if (n == 0) {
-        FD_CLR(fd, &master_);
+        multiplexer_->remove_fd(fd);
         connections.erase(fd);
-        if (fd == max_fd_)
-            while (max_fd_ >= 0 && !FD_ISSET(max_fd_, &master_))
-                max_fd_--;
         std::cerr << "Sever: Client has disconnected" << "\n";
     }
 
@@ -133,4 +121,12 @@ std::unique_ptr<ITransport> Server::set_transport_(TCPSocket &&client_socket) {
         return std::make_unique<TCPTransport>(std::move(client_socket));
     else 
         return std::make_unique<TCPTransport>(std::move(client_socket));
+}
+
+/**/
+void Server::set_multiplexer() {
+    if (multistrategy_ == "select")
+        multiplexer_ = std::make_unique<SelectMultiplexer>();
+    else 
+        multiplexer_ = std::make_unique<SelectMultiplexer>();
 }

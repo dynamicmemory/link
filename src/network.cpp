@@ -6,16 +6,18 @@ Network::Network() = default;
 Server Network::create_server(const std::string &host, 
                               const std::string &port, 
                               const std::string &protocol,
-                              const std::string &transport) {
-    Server server(host, port, protocol, transport);
+                              const std::string &transport,
+                              const std::string &multiplexer) {
+    Server server(host, port, protocol, transport, multiplexer);
     return server;
 }
 
 Client Network::create_client(const std::string &host, 
                               const std::string &port, 
                               const std::string &protocol,
-                              const std::string &transport) {
-    Client client(host, port, protocol, transport);
+                              const std::string &transport,
+                              const std::string &multiplexer) {
+    Client client(host, port, protocol, transport, multiplexer);
     return client;
 }
 

@@ -1,6 +1,7 @@
 #include "client.hpp"
 #include "defaultprotocol.hpp"
 #include "tcptransport.hpp"
+#include "selectmultiplexer.hpp"
 #include <netdb.h>
 #include <unistd.h>
 
@@ -8,40 +9,26 @@
 Client::Client(const std::string &host, 
                const std::string &port, 
                const std::string &protocol, 
-               const std::string &transport) : 
+               const std::string &transport,
+               const std::string &multiplexer) : 
     host(host), port(port), socket(TCPSocket::client_socket(host, port)),
-    protocol_(protocol), transport_(transport) {
+    protocol_(protocol), transport_(transport), multistrategy_(multiplexer) {
+    set_multiplexer_();
     init_();
     }
 
 /**/
 void Client::init_() {
     connection_ = Connection{set_transport_(std::move(socket)), set_protocol_() };
-    FD_ZERO(&master_);
-    FD_SET(connection_.fd(), &master_);
-    FD_SET(0, &master_);
+    multiplexer_->add_fd(connection_.fd());
 }
 
 /**/
 void Client::tick() {
-    fd_set fds = master_;
+    multiplexer_->wait(0);
 
-    struct timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 0;
-
-    if (select(connection_.fd()+1, &fds, 0, 0, &timeout) < 0) 
-        throw std::runtime_error("Client: select failed");
-    
-    if (FD_ISSET(0, &fds)) {
-        // User input something, encode with protocol, send to server 
-        // Though a user using this lib, would use .send, so perhaps removal
-        // of this clause instead.
-    }
-
-    if (FD_ISSET(connection_.fd(), &fds)) {
-        ssize_t total = 4096;
-        uint8_t buf[total];
+    if (multiplexer_->ready(connection_.fd())) {
+        uint8_t buf[4096];
         ssize_t n = connection_.transport->recieve(buf);
 
         if (n == 0) {
@@ -96,4 +83,12 @@ std::unique_ptr<ITransport> Client::set_transport_(TCPSocket &&socket) {
         return std::make_unique<TCPTransport>(std::move(socket));
     else 
         return std::make_unique<TCPTransport>(std::move(socket));
+}
+
+/**/
+void Client::set_multiplexer_() {
+    if (multistrategy_ == "select")
+        multiplexer_ = std::make_unique<SelectMultiplexer>();
+    else 
+        multiplexer_ = std::make_unique<SelectMultiplexer>();
 }

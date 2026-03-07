@@ -7,6 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_library(Network
     src/tcpsocket.cpp
     src/tcptransport.cpp
+    src/selectmultiplexer.cpp
 
     src/defaultprotocol.cpp
 

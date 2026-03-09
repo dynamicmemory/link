@@ -23,6 +23,7 @@ private:
     int server_socket;
     TCPSocket socket;
     std::unordered_map<int, Connection> connections;
+    std::vector<int> disconnected_fds;
 
     fd_set master_;
     int max_fd_;
@@ -36,7 +37,7 @@ public:
 
     void start_server();
 
-    void tick();
+    void tick(int);
     bool has_message();
     Message next();
     void send(int, const std::string &); 

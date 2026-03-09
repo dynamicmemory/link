@@ -23,15 +23,17 @@ private:
     fd_set master_;
 
     Connection connection_; 
+    bool connected_;
     std::queue<Message> inbox_;
 public:
     Client(const std::string &, const std::string &, 
            const std::string &, const std::string &, const std::string &);
 
     void init_();
-    void tick();
+    void tick(int);
     bool has_message();
     Message next();
+    bool is_connected();
     void send(const std::string &); 
 
     void broadcast();

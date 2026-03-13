@@ -3,10 +3,15 @@ project(NetworkFramework)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")
+
+find_package(OpenSSL REQUIRED)
 
 add_library(Network
     src/tcpsocket.cpp
     src/tcptransport.cpp
+    src/tlstransport.cpp
+
     src/selectmultiplexer.cpp
 
     src/defaultprotocol.cpp
@@ -17,14 +22,10 @@ add_library(Network
 )
 
 target_include_directories(Network PUBLIC include)
+target_link_libraries(Network PUBLIC OpenSSL::SSL OpenSSL::Crypto)
 
-add_executable(server_main
-    src/server_main.cpp
-)
-
-add_executable(client_main
-    src/client_main.cpp
-)
+add_executable(server_main src/server_main.cpp)
+add_executable(client_main src/client_main.cpp)
 
 target_link_libraries(server_main PRIVATE Network)
 target_link_libraries(client_main PRIVATE Network)

@@ -9,7 +9,7 @@ int main(void) {
     std::string port = "1991";
     std::string protocol = "";
     Network network;
-    Server server = network.create_server(host, port);
+    Server server = network.create_server(host, port, "default","tls");
     
     while (1) {
         server.tick();

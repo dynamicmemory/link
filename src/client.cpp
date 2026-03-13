@@ -1,6 +1,7 @@
 #include "client.hpp"
 #include "defaultprotocol.hpp"
 #include "tcptransport.hpp"
+#include "tlstransport.hpp"
 #include "selectmultiplexer.hpp"
 #include <netdb.h>
 #include <unistd.h>
@@ -33,10 +34,10 @@ void Client::init_() {
  * Must be called repeatedly in the client’s main loop to maintain
  * responsiveness.
  */
-void Client::tick() {
+void Client::tick(int timeout) {
     if (!connected_) return;
 
-    multiplexer_->wait(0);
+    multiplexer_->wait(timeout);
 
     if (multiplexer_->ready(connection_.fd())) {
         size_t size = 4096;
@@ -107,6 +108,8 @@ std::unique_ptr<IProtocol> Client::set_protocol_() {
 std::unique_ptr<ITransport> Client::set_transport_(TCPSocket &&socket) {
     if (transport_ == "tcp")
         return std::make_unique<TCPTransport>(std::move(socket));
+    else if (transport_ == "tls")
+        return std::make_unique<TLSTransport>(std::move(socket), false);
     else 
         return std::make_unique<TCPTransport>(std::move(socket));
 }

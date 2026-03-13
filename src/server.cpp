@@ -1,6 +1,7 @@
 #include "server.hpp"
 #include "defaultprotocol.hpp"
 #include "tcptransport.hpp"
+#include "tlstransport.hpp"
 #include "selectmultiplexer.hpp"
 #include <netdb.h>
 #include <unistd.h>
@@ -31,7 +32,7 @@ void Server::init_() {
  *
  * Must be called repeatedly in the server's main loop to maintain
  * responsiveness. */
-void Server::tick(int timeout=0) {
+void Server::tick(int timeout) {
     multiplexer_->wait(timeout);
     if (multiplexer_->ready(socket.fd()))
         accept_client_(socket.fd());
@@ -46,39 +47,6 @@ void Server::tick(int timeout=0) {
         std::cerr << "Sever: Client has disconnected" << "\n";
     }
     disconnected_fds.clear();
-}
-
-/* Returns whether the server has any fully decoded messages available.
- * @return true if inbox contains messages, false otherwise. */
-bool Server::has_message() { return !inbox_.empty(); }
-
-/* Retrieves the next message from the inbox.
- *
- * Messages are returned in FIFO order and contain:
- * - fd: the client file descriptor
- * - message string
- *
- * @return Next available message. */
-Message Server::next() {
-    Message m = std::move(inbox_.front());
-    inbox_.pop();
-    return m;
-}
-
-/* Sends a message to a specific client.
- *
- * Encodes the message via the client's protocol, then writes it
- * to the transport.
- *
- * @param fd File descriptor of the target client.
- * @param buf Message string to send. */
-void Server::send(int fd, const std::string &buf) {
-    auto &conn = connections.at(fd);
-    auto bytes = conn.protocol->encode(buf);
-
-    bool status = conn.transport->send_all(bytes.data(), bytes.size());
-    if (!status)
-        throw std::runtime_error("Server Send Failed");
 }
 
 /* Accepts a new client on the listening socket.
@@ -116,17 +84,13 @@ void Server::handle_client_(int fd) {
     // Client disconnecting 
     if (n == 0) {
         disconnected_fds.push_back(fd);
-
-
         return;
     }
-
     // Error occured
     else if (n < 0) {
         if (errno == EINTR) return ;
         if (errno == EAGAIN || errno == EWOULDBLOCK) return;
     }
-
     // Client sending a request
     else if (n > 0) {
         // send the clients message to the inbox
@@ -136,6 +100,41 @@ void Server::handle_client_(int fd) {
             inbox_.push({fd, conn.protocol->return_message()});
     }
 }
+
+/* Returns whether the server has any fully decoded messages available.
+ * @return true if inbox contains messages, false otherwise. */
+bool Server::has_message() { return !inbox_.empty(); }
+
+/* Retrieves the next message from the inbox.
+ *
+ * Messages are returned in FIFO order and contain:
+ * - fd: the client file descriptor
+ * - message string
+ *
+ * @return Next available message. */
+Message Server::next() {
+    Message m = std::move(inbox_.front());
+    inbox_.pop();
+    return m;
+}
+
+/* Sends a message to a specific client.
+ *
+ * Encodes the message via the client's protocol, then writes it
+ * to the transport.
+ *
+ * @param fd File descriptor of the target client.
+ * @param buf Message string to send. */
+void Server::send(int fd, const std::string &buf) {
+    auto &conn = connections.at(fd);
+    auto bytes = conn.protocol->encode(buf);
+
+    bool status = conn.transport->send_all(bytes.data(), bytes.size());
+    if (!status)
+        throw std::runtime_error("Server Send Failed");
+}
+
+
 
 /* Configures the protocol object for new connections */
 std::unique_ptr<IProtocol> Server::set_protocol_() {
@@ -149,6 +148,8 @@ std::unique_ptr<IProtocol> Server::set_protocol_() {
 std::unique_ptr<ITransport> Server::set_transport_(TCPSocket &&client_socket) {
     if (transport_ == "tcp")
         return std::make_unique<TCPTransport>(std::move(client_socket));
+    else if (transport_ == "tls")
+        return std::make_unique<TLSTransport>(std::move(client_socket), true);
     else 
         return std::make_unique<TCPTransport>(std::move(client_socket));
 }

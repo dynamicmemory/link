@@ -9,7 +9,7 @@ int main(void) {
     std::string protocol = "sadflkj";
     Network n;
 
-    Client client = n.create_client(host, port, protocol);
+    Client client = n.create_client(host, port, protocol, "tls");
     
     client.send("Hello I am the client, I am sending you this message... how exciting");
     while (1) {

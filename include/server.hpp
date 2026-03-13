@@ -37,7 +37,7 @@ public:
 
     void start_server();
 
-    void tick(int);
+    void tick(int timeout=0);
     bool has_message();
     Message next();
     void send(int, const std::string &); 

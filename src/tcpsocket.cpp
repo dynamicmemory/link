@@ -155,7 +155,6 @@ int TCPSocket::fd() const { return fd_; }
  */
 bool TCPSocket::send_all(const uint8_t *buf, size_t len) { 
     size_t total = 0;
-
     while (total < len) {
         ssize_t n = ::send(fd_, buf+total, len-total, 0);
         if (n <=0) {

@@ -30,7 +30,7 @@ public:
            const std::string &, const std::string &, const std::string &);
 
     void init_();
-    void tick(int);
+    void tick(int timeout=0);
     bool has_message();
     Message next();
     bool is_connected();

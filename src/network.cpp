@@ -1,5 +1,6 @@
+/* This class was initially added to contain and manage server and clients, 
+ * currently it isn't fulfilling that roll and instead is just a wrapper. */
 #include "network.hpp"
-#include <iostream>
 
 Network::Network() = default;
 
@@ -21,8 +22,6 @@ Client Network::create_client(const std::string &host,
     return client;
 }
 
-void Network::send() {}
-void Network::recieve() {}
-
+// Currently not used and possibly never going to be.
 void Network::disconnect() {}
 void Network::shutdown() {}

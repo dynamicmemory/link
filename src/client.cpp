@@ -82,12 +82,10 @@ bool Client::is_connected() {
 }
 
 /* Sends a message to the connected server.
- *
  * - Encodes the message via the protocol layer.
  * - Transmits the entire encoded frame via the transport.
  *
- * @param buf Message string to send.
- */
+ * @param buf Message string to send. */
 void Client::send(const std::string &buf) {
     auto bytes = connection_.protocol->encode(buf);
 
@@ -121,10 +119,6 @@ void Client::set_multiplexer_() {
     else 
         multiplexer_ = std::make_unique<SelectMultiplexer>();
 }
-
-
-
-
 
 /**
  * Client

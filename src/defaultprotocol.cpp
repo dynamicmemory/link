@@ -7,28 +7,23 @@
 DefaultProtocol::DefaultProtocol(uint32_t maxsize) : MAX_FRAME(maxsize) {} 
 
 /* Encodes a payload length into network byte order.
- *
  * The length prefix is written into the provided buffer
  * using big-endian encoding so that the protocol remains
  * platform independent across architectures.
  *
  * @param data Pointer to the buffer where the encoded length will be written.
- * @param len  Payload size in bytes.
- */
+ * @param len  Payload size in bytes. */
 void DefaultProtocol::encode_length(uint8_t *data, uint32_t len) {
     uint32_t prefix = htonl(len);
     std::memcpy(data, &prefix, sizeof(prefix));
 }
 
 /* Decodes a length prefix from network byte order.
- *
  * Reads the first four bytes of the provided buffer and
  * converts them from network byte order to host byte order.
- *
  * @param data Pointer to the buffer containing the length prefix.
  *
- * @return Decoded payload length.
- */
+ * @return Decoded payload length. */
 uint32_t DefaultProtocol::decode_length(uint8_t *data) {
     uint32_t prefix;
     std::memcpy(&prefix, data, sizeof(prefix));
@@ -36,15 +31,10 @@ uint32_t DefaultProtocol::decode_length(uint8_t *data) {
 }
 
 /* Encodes a message into a length-prefixed frame.
- *
  * The resulting byte sequence is structured as:
- *
  *     [4 byte length][payload bytes]
- *
  * @param message Application message to encode.
- *
- * @return Byte vector containing the encoded frame.
- */
+ * @return Byte vector containing the encoded frame. */
 std::vector<uint8_t> DefaultProtocol::encode(const std::string &message) {
     if (message.size() > MAX_FRAME)
         throw std::runtime_error("Message exceeds maximum allowed size");
@@ -56,14 +46,12 @@ std::vector<uint8_t> DefaultProtocol::encode(const std::string &message) {
 } 
 
 /* Processes incoming data from the network.
- *
  * Because TCP delivers a continuous byte stream rather than
  * discrete messages, this function accumulates received bytes
  * into an internal buffer until a complete frame is available.
  *
  * @param data Pointer to newly received bytes.
- * @param len  Number of bytes received from the transport.
- */
+ * @param len  Number of bytes received from the transport. */
 void DefaultProtocol::decode(const uint8_t *data, size_t len) {
     buff_.insert(buff_.end(), data, data+len);
 
@@ -84,17 +72,12 @@ void DefaultProtocol::decode(const uint8_t *data, size_t len) {
 }
 
 /* Indicates whether a decoded message is available.
- *
- * @return true if at least one fully decoded message is ready to be consumed.
- */
+ * @return true if at least one fully decoded message is ready to be consumed. */
 bool DefaultProtocol::has_message() const {
     return !messages_.empty();
 }
 
-/* Retrieves the next decoded message.
- *
- * @return Next decoded message.
- */
+/* @return Next decoded message. */
 std::string DefaultProtocol::return_message() {
     if (messages_.empty())
         throw std::runtime_error("No message available");
@@ -107,7 +90,6 @@ std::string DefaultProtocol::return_message() {
 /* DefaultProtocol / prefixlength Protocol
  *
  * Implements a simple length-prefixed message protocol.
- *
  * Each message is transmitted using the following frame format:
  *
  *     [4-byte length prefix][message payload]
@@ -134,4 +116,3 @@ std::string DefaultProtocol::return_message() {
  * - Frames larger than MAX_FRAME are rejected to prevent
  *   memory exhaustion or malformed protocol input.
  */
-

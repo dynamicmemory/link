@@ -68,7 +68,6 @@ bool TLSTransport::send_all(const uint8_t *data, size_t len) {
             return 0;
         }
         // Catastrophic error occured TODO: Handle better.
-
         throw std::runtime_error("SSL Write failed");
     }
     return true;

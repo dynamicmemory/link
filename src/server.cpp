@@ -44,7 +44,7 @@ void Server::tick(int timeout) {
     for (int fd : disconnected_fds) {
         multiplexer_->remove_fd(fd);
         connections.erase(fd);
-        std::cerr << "Sever: Client has disconnected" << "\n";
+        // std::cerr << "Sever: Client has disconnected" << "\n";
     }
     disconnected_fds.clear();
 }
@@ -134,8 +134,6 @@ void Server::send(int fd, const std::string &buf) {
         throw std::runtime_error("Server Send Failed");
 }
 
-
-
 /* Configures the protocol object for new connections */
 std::unique_ptr<IProtocol> Server::set_protocol_() {
     if (protocol_ == "default") 
@@ -161,8 +159,6 @@ void Server::set_multiplexer() {
     else 
         multiplexer_ = std::make_unique<SelectMultiplexer>();
 }
-
-
 
 /**
  * Server

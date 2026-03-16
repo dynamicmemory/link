@@ -8,7 +8,7 @@
 #include <iostream>
 
 /**/
-Server::Server(const std::string &port, const std::string &host, 
+Server::Server(const std::string &host, const std::string &port, 
                const std::string &protocol, const std::string &transport,
                const std::string &multiplexer) : 
     port(port), host(host), socket(TCPSocket::server_socket(host, port)), 

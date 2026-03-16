@@ -9,8 +9,8 @@ private:
 public:
     Network();
 
-    Server create_server(const std::string &port, 
-                         const std::string &host = "0.0.0.0", 
+    Server create_server(const std::string &host,
+                         const std::string &port, 
                          const std::string &protocol = "default",
                          const std::string &transport = "tcp",
                          const std::string &multiplexer = "select");

@@ -22,4 +22,5 @@ public:
     ssize_t recieve(uint8_t *, size_t) override;
     bool send_all(const uint8_t *, size_t) override;
     bool do_handshake();
+    bool is_ready() override;
 };

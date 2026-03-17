@@ -12,4 +12,5 @@ public:
     int fd() const override;
     ssize_t recieve(uint8_t *, size_t) override;
     bool send_all(const uint8_t *, size_t) override;
+    bool is_ready() override;
 };

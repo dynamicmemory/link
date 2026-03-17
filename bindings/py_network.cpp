@@ -26,5 +26,6 @@ PYBIND11_MODULE(link, m) {
         .def("tick", &Client::tick)
         .def("has_message", &Client::has_message)
         .def("next", &Client::next)
-        .def("send", &Client::send);
+        .def("send", &Client::send)
+        .def("is_ready", &Client::is_ready);
 }

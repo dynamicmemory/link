@@ -12,7 +12,7 @@ struct NetworkClient { Client *impl; };
 NetworkServer *server_create(const char *host, const char *port,
         const char *protocol, const char *transport, const char *multiplexer) {
     NetworkServer *s = new NetworkServer;
-    s->impl = new Server(port, host, protocol, transport, multiplexer);
+    s->impl = new Server(host, port, protocol, transport, multiplexer);
     return s;
 }
 
@@ -67,6 +67,10 @@ const char *client_next(NetworkClient *client) {
 
 void client_send(NetworkClient *client, const char *msg) {
     client->impl->send(msg); 
+}
+
+int client_is_ready(NetworkClient *client) {
+    return client->impl->is_ready() ? 1 : 0;
 }
 
 void client_destroy(NetworkClient *client) {

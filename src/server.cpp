@@ -38,8 +38,11 @@ void Server::tick(int timeout) {
         accept_client_(socket.fd());
 
     for (auto &[fd, conn] : connections)
-        if (multiplexer_->ready(fd))
+        if (multiplexer_->ready(fd)) {
+            // Check for handshake based transport implementations 
+            if (!conn.transport->is_ready()) continue;
             handle_client_(fd);
+        }
 
     for (int fd : disconnected_fds) {
         multiplexer_->remove_fd(fd);
@@ -106,7 +109,6 @@ void Server::handle_client_(int fd) {
 bool Server::has_message() { return !inbox_.empty(); }
 
 /* Retrieves the next message from the inbox.
- *
  * Messages are returned in FIFO order and contain:
  * - fd: the client file descriptor
  * - message string
@@ -131,7 +133,7 @@ void Server::send(int fd, const std::string &buf) {
 
     bool status = conn.transport->send_all(bytes.data(), bytes.size());
     if (!status)
-        throw std::runtime_error("Server Send Failed");
+        throw std::runtime_error("Server: Send Failed");
 }
 
 /* Configures the protocol object for new connections */

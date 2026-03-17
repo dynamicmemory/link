@@ -32,6 +32,8 @@ TLSTransport::TLSTransport(TCPSocket socket, bool server) :
     int flags = ::fcntl(socket_.fd(), F_GETFL, 0);
     fcntl(socket_.fd(), F_SETFL, flags | O_NONBLOCK);
     SSL_set_fd(ssl_, socket_.fd()); 
+
+    handshake_complete_ = false;
 };
 
 TLSTransport::~TLSTransport() {
@@ -47,9 +49,6 @@ int TLSTransport::fd() const { return socket_.fd();}
 
 /**/
 bool TLSTransport::send_all(const uint8_t *data, size_t len) {
-    if (!handshake_complete_)
-        do_handshake();
-
     size_t total = 0;
     while (total < len) {
         ssize_t n = ::SSL_write(ssl_, data+total, len-total);
@@ -65,7 +64,7 @@ bool TLSTransport::send_all(const uint8_t *data, size_t len) {
         // The return type is bool, does this even make sense?
         if (err == SSL_ERROR_ZERO_RETURN) {  
             handshake_complete_ = false;
-            return 0;
+            return false;
         }
         // Catastrophic error occured TODO: Handle better.
         throw std::runtime_error("SSL Write failed");
@@ -75,8 +74,6 @@ bool TLSTransport::send_all(const uint8_t *data, size_t len) {
 
 /**/
 ssize_t TLSTransport::recieve(uint8_t *buf, size_t n) { 
-    if (!handshake_complete_)
-        do_handshake();
     ssize_t ret = ::SSL_read(ssl_, buf, n);
     if (ret > 0) return ret;
 
@@ -93,13 +90,9 @@ ssize_t TLSTransport::recieve(uint8_t *buf, size_t n) {
     throw std::runtime_error("SSL Read failed");
 }
 
-/**/
+// TODO: Can return void if new solution works
 bool TLSTransport::do_handshake() {
-    int ret = 0;
-    if (server_) 
-        ret = ::SSL_accept(ssl_);
-    else 
-        ret = ::SSL_connect(ssl_);
+    int ret = (server_) ? ::SSL_accept(ssl_) : ::SSL_connect(ssl_); 
 
     if (ret == 1) {
         handshake_complete_ = true;
@@ -120,4 +113,11 @@ bool TLSTransport::do_handshake() {
     char buf[256];
     ::ERR_error_string_n(ERR_get_error(), buf, sizeof(buf));
     throw std::runtime_error(std::string("TLS Handshake failed.")+buf);
+}
+
+bool TLSTransport::is_ready() {
+    if (handshake_complete_)
+        return handshake_complete_;
+    do_handshake();
+    return handshake_complete_;
 }

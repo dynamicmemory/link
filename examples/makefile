@@ -1,4 +1,4 @@
-# examples/Makefile
+# temp_proj/Makefile
 CC = g++
 CFLAGS = -Iinclude -Ic_api
 LDFLAGS = -L. -lNetwork -lCrypto

@@ -29,6 +29,7 @@ void client_tick(NetworkClient *, int );
 int client_has_message(NetworkClient *);
 const char *client_next(NetworkClient *);
 void client_send(NetworkClient *, const char *);
+int client_is_ready(NetworkClient *);
 void client_destroy(NetworkClient *);
 
 #ifdef __cplusplus 

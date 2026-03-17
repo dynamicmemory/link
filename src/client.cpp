@@ -40,6 +40,9 @@ void Client::tick(int timeout) {
     multiplexer_->wait(timeout);
 
     if (multiplexer_->ready(connection_.fd())) {
+        if (!connection_.transport->is_ready())
+            return;
+
         size_t size = 4096;
         uint8_t buf[size];
         ssize_t n = connection_.transport->recieve(buf, size);
@@ -118,6 +121,11 @@ void Client::set_multiplexer_() {
         multiplexer_ = std::make_unique<SelectMultiplexer>();
     else 
         multiplexer_ = std::make_unique<SelectMultiplexer>();
+}
+
+/* Returns true if socket is ready for communicaiton, false otherwise*/
+bool Client::is_ready() {
+    return connection_.transport->is_ready();
 }
 
 /**

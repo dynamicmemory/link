@@ -49,4 +49,6 @@ public:
     std::unique_ptr<IProtocol> set_protocol_();
     std::unique_ptr<ITransport> set_transport_(TCPSocket &&);
     void set_multiplexer();
+
+    bool is_ready();
 };

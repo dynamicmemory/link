@@ -24,5 +24,10 @@ ssize_t TCPTransport::recieve(uint8_t *buf, size_t n) {
     return socket_.recieve(buf, n); 
 }
 
+/* There is no handshake for tcp, so always return true */
+bool TCPTransport::is_ready() {
+    return true;
+}
+
 
 

@@ -1,8 +1,10 @@
 #include "server.hpp"
-#include "defaultprotocol.hpp"
+#include "prefixedlengthprotocol.hpp"
+#include "newlineprotocol.hpp"
 #include "tcptransport.hpp"
 #include "tlstransport.hpp"
 #include "selectmultiplexer.hpp"
+
 #include <netdb.h>
 #include <unistd.h>
 #include <iostream>
@@ -139,9 +141,11 @@ void Server::send(int fd, const std::string &buf) {
 /* Configures the protocol object for new connections */
 std::unique_ptr<IProtocol> Server::set_protocol_() {
     if (protocol_ == "default") 
-        return std::make_unique<DefaultProtocol>();
+        return std::make_unique<PrefixedLengthProtocol>();
+    else if (protocol_ == "newline")
+        return std::make_unique<NewLineProtocol>();
     else 
-        return std::make_unique<DefaultProtocol>();
+        return std::make_unique<PrefixedLengthProtocol>();
 }
 
 /* Configures the transport object for a new connection*/

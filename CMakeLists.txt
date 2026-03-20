@@ -15,9 +15,10 @@ add_library(Network SHARED
     src/tcptransport.cpp
     src/tlstransport.cpp
 
-    src/selectmultiplexer.cpp
+    src/prefixedlengthprotocol.cpp
+    src/newlineprotocol.cpp
 
-    src/defaultprotocol.cpp
+    src/selectmultiplexer.cpp
 
     src/network.cpp
     src/server.cpp

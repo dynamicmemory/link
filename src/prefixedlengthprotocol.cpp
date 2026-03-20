@@ -1,10 +1,10 @@
 #include <stdexcept>
 #include <cstring>
 #include <arpa/inet.h>
-#include "defaultprotocol.hpp"
+#include "prefixedlengthprotocol.hpp"
 
 /**/
-DefaultProtocol::DefaultProtocol(uint32_t maxsize) : MAX_FRAME(maxsize) {} 
+PrefixedLengthProtocol::PrefixedLengthProtocol(uint32_t maxsize) : MAX_FRAME(maxsize) {} 
 
 /* Encodes a payload length into network byte order.
  * The length prefix is written into the provided buffer
@@ -13,7 +13,7 @@ DefaultProtocol::DefaultProtocol(uint32_t maxsize) : MAX_FRAME(maxsize) {}
  *
  * @param data Pointer to the buffer where the encoded length will be written.
  * @param len  Payload size in bytes. */
-void DefaultProtocol::encode_length(uint8_t *data, uint32_t len) {
+void PrefixedLengthProtocol::encode_length(uint8_t *data, uint32_t len) {
     uint32_t prefix = htonl(len);
     std::memcpy(data, &prefix, sizeof(prefix));
 }
@@ -24,7 +24,7 @@ void DefaultProtocol::encode_length(uint8_t *data, uint32_t len) {
  * @param data Pointer to the buffer containing the length prefix.
  *
  * @return Decoded payload length. */
-uint32_t DefaultProtocol::decode_length(uint8_t *data) {
+uint32_t PrefixedLengthProtocol::decode_length(uint8_t *data) {
     uint32_t prefix;
     std::memcpy(&prefix, data, sizeof(prefix));
     return ntohl(prefix);
@@ -35,7 +35,7 @@ uint32_t DefaultProtocol::decode_length(uint8_t *data) {
  *     [4 byte length][payload bytes]
  * @param message Application message to encode.
  * @return Byte vector containing the encoded frame. */
-std::vector<uint8_t> DefaultProtocol::encode(const std::string &message) {
+std::vector<uint8_t> PrefixedLengthProtocol::encode(const std::string &message) {
     if (message.size() > MAX_FRAME)
         throw std::runtime_error("Message exceeds maximum allowed size");
 
@@ -52,7 +52,7 @@ std::vector<uint8_t> DefaultProtocol::encode(const std::string &message) {
  *
  * @param data Pointer to newly received bytes.
  * @param len  Number of bytes received from the transport. */
-void DefaultProtocol::decode(const uint8_t *data, size_t len) {
+void PrefixedLengthProtocol::decode(const uint8_t *data, size_t len) {
     buff_.insert(buff_.end(), data, data+len);
 
     while (buff_.size() >= 4) {
@@ -73,12 +73,12 @@ void DefaultProtocol::decode(const uint8_t *data, size_t len) {
 
 /* Indicates whether a decoded message is available.
  * @return true if at least one fully decoded message is ready to be consumed. */
-bool DefaultProtocol::has_message() const {
+bool PrefixedLengthProtocol::has_message() const {
     return !messages_.empty();
 }
 
 /* @return Next decoded message. */
-std::string DefaultProtocol::return_message() {
+std::string PrefixedLengthProtocol::return_message() {
     if (messages_.empty())
         throw std::runtime_error("No message available");
 
@@ -87,7 +87,7 @@ std::string DefaultProtocol::return_message() {
     return message;
 }
 
-/* DefaultProtocol / prefixlength Protocol
+/* PrefixedLengthProtocol 
  *
  * Implements a simple length-prefixed message protocol.
  * Each message is transmitted using the following frame format:

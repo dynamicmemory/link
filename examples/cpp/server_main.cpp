@@ -7,10 +7,10 @@ int main(void) {
 
     std::string host = "127.0.0.1";
     std::string port = "1991";
-    std::string protocol = "";
+    std::string protocol = "newline";
     std::string transport = "tls";
     Network network;
-    Server server = network.create_server(host, port, "default", transport);
+    Server server = network.create_server(host, port, protocol, transport);
     
     while (1) {
         server.tick();

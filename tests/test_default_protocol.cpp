@@ -1,11 +1,11 @@
 #include "../include/catch2.hpp"
-#include "../include/defaultprotocol.hpp"
+#include "../include/prefixedlengthprotocol.hpp"
 
 #include <cstring>
 #include <arpa/inet.h>
 
-TEST_CASE("DefaultProtocol: Encodes message with length prefix") {
-    DefaultProtocol p;
+TEST_CASE("PrefixedLengthProtocolEncodes message with length prefix") {
+    PrefixedLengthProtocol p;
     // Test encode & encode_length by definition
     auto data = p.encode("hello");
     REQUIRE(data.size() == 9);
@@ -16,8 +16,8 @@ TEST_CASE("DefaultProtocol: Encodes message with length prefix") {
     REQUIRE(ntohl(elen) == 5);
 }
 
-TEST_CASE("DefaultProtocol: Decodes framed messages") {
-    DefaultProtocol p;
+TEST_CASE("PrefixedLengthProtocol: Decodes framed messages") {
+    PrefixedLengthProtocol p;
 
     // Test has message 
     REQUIRE_FALSE(p.has_message());
@@ -32,8 +32,8 @@ TEST_CASE("DefaultProtocol: Decodes framed messages") {
     REQUIRE(msg == "hello");
 }
 
-TEST_CASE("DefaultProtocol: Handles partial frames") {
-    DefaultProtocol p;
+TEST_CASE("PrefixedLengthProtocol: Handles partial frames") {
+    PrefixedLengthProtocol p;
 
     auto data = p.encode("hello");
     p.decode(data.data(), 3);

@@ -7,18 +7,15 @@ int main(void) {
     std::string host = "127.0.0.1";
     std::string port = "1991";
     std::string protocol = "newline";
-    std::string transport = "tls";
+    std::string transport = "tcp";
     Network n;
-
     Client client = n.create_client(host, port, protocol, transport);
 
-    int p = 0;
     while (1) {
+        if (!client.is_ready()) continue;
         client.tick();
-        if (client.is_ready() && p == 0) {
-            client.send("Hello I am the client, I am sending you this message... how exciting");
-            p++;
-        }
+        
+        client.send("Hello I am the client, I am sending you this message... how exciting");
         
         if(client.has_message()) {
             auto message = client.next();

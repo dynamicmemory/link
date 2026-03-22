@@ -11,11 +11,15 @@ private:
     int score_;
 
 public:
-    std::string init_place_holder();
-    std::string place_holder(std::string &s) { return s; }
+    std::queue<std::string> init_place_holder();
+    std::queue<std::string> place_holder(std::string &s) { 
+        std::queue<std::string> res;
+        res.push(s);
+        return res; 
+    }
 };
 
-std::string handle_client(Message, std::unordered_map<int, Game> &);
+std::queue<std::string> handle_client(Message, std::unordered_map<int, Game> &);
 
 int main(void) {
     std::string host = "127.0.0.1";
@@ -26,21 +30,25 @@ int main(void) {
     Server server = network.create_server(host, port, protocol, transport);
     std::unordered_map<int, Game> games;
     
+    
     while (1) {
         server.tick();
 
         if (server.has_message()) {
             auto message = server.next();
-            std::string response = handle_client(message, games);
-            server.send(message.fd, response);
+            std::queue<std::string> response = handle_client(message, games);
+            while (!response.empty()) {
+                server.send(message.fd, response.front());
+                response.pop();
+            }
         }
     }
 
     return 0;
 }
 
-std::string handle_client(Message m, std::unordered_map<int, Game> &g) {
-    std::string response;
+std::queue<std::string> handle_client(Message m, std::unordered_map<int, Game> &g) {
+    std::queue<std::string> response;
     if (g.contains(m.fd))
         // process next step of game;
         response = g.at(m.fd).place_holder(m.payload);
@@ -51,8 +59,9 @@ std::string handle_client(Message m, std::unordered_map<int, Game> &g) {
     }
     
     // Make enum for GAME_OVER, GAME_START, etc
-    if (response == "GAME OVER") g.erase(m.fd);
+    if (response.back() == "GAME OVER") { 
+            g.erase(m.fd);
+        }
     return response;
 }
-
 

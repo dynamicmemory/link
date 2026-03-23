@@ -21,7 +21,7 @@ Server::Server(const std::string &host, const std::string &port,
 
 /**/
 void Server::init_() {
-    set_multiplexer();
+    set_multiplexer_();
     multiplexer_->add_fd(socket.fd());
 }
 
@@ -138,6 +138,10 @@ void Server::send(int fd, const std::string &buf) {
         throw std::runtime_error("Server: Send Failed");
 }
 
+void Server::kick(int fd) {
+    multiplexer_->remove_fd((fd));
+}
+
 /* Configures the protocol object for new connections */
 std::unique_ptr<IProtocol> Server::set_protocol_() {
     if (protocol_ == "default") 
@@ -159,7 +163,7 @@ std::unique_ptr<ITransport> Server::set_transport_(TCPSocket &&client_socket) {
 }
 
 /* Configures the multiplexer for the server.*/
-void Server::set_multiplexer() {
+void Server::set_multiplexer_() {
     if (multistrategy_ == "select")
         multiplexer_ = std::make_unique<SelectMultiplexer>();
     else 

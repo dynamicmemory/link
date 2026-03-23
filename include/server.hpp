@@ -36,11 +36,12 @@ public:
     void listening_();
 
     void start_server();
-
     void tick(int timeout=0);
     bool has_message();
     Message next();
     void send(int, const std::string &); 
+    bool is_ready();
+    void kick(int);
     void broadcast();
 
     void accept_client_(int);
@@ -48,7 +49,7 @@ public:
 
     std::unique_ptr<IProtocol> set_protocol_();
     std::unique_ptr<ITransport> set_transport_(TCPSocket &&);
-    void set_multiplexer();
+    void set_multiplexer_();
 
-    bool is_ready();
+
 };

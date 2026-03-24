@@ -4,6 +4,9 @@
 #include <algorithm>
 #include "newlineprotocol.hpp"
 
+
+#include <iostream>
+
 /**/
 NewLineProtocol::NewLineProtocol(uint32_t maxsize) : MAX_FRAME(maxsize) {} 
 
@@ -13,6 +16,8 @@ NewLineProtocol::NewLineProtocol(uint32_t maxsize) : MAX_FRAME(maxsize) {}
 std::vector<uint8_t> NewLineProtocol::encode(const std::string &message) {
     if (message.size() > MAX_FRAME)
         throw std::runtime_error("Message exceeds maximum allowed size");
+
+    std::cout << "Encoding: " << message << std::endl;
 
     // Add the '\n' delim for decode to find
     std::vector<uint8_t> data(message.begin(), message.end());
@@ -31,12 +36,15 @@ std::vector<uint8_t> NewLineProtocol::encode(const std::string &message) {
 void NewLineProtocol::decode(const uint8_t *data, size_t len) {
     buff_.insert(buff_.end(), data, data+len);
 
+
     while (true) {
         auto it = std::find(buff_.begin(), buff_.end(), '\n');
         if (it == buff_.end())
             break; // recv didn't get the whole message
 
         std::string m(buff_.begin(), buff_.end());
+        while (!m.empty() && (m.back() == '\n' || m.back() == '\r')) m.pop_back();
+        std::cout << "Decoded: " << m << std::endl;
         messages_.push(std::move(m));
 
         // Clear storage +1 for the newline

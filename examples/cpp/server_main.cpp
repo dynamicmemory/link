@@ -9,8 +9,8 @@
 
 class Game {
 private:
-    std::string target_path_;
-    std::string guess_path_;
+    std::string target_path_ = "../examples/cpp/word_lists/target.txt";
+    std::string guess_path_ = "../examples/cpp/word_lists/guess.txt";
     std::vector<std::string> valid_guess_;
 
     int score_;
@@ -40,10 +40,12 @@ std::string Game::generate_word_() {
     std::vector<std::string> words;
     while (in >> word)
         words.push_back(word);
-    std::mt19937 gen;
-    std::uniform_int_distribution<> r(0, words.size()-1);
+    // std::mt19937 gen;
+    // std::uniform_int_distribution<> r(0, words.size()-1);
     
-    return words.at(r(gen));
+    // return words.at(r(gen));
+    // return words.at(5);
+    return "HELLO";
 }
 
 /* */
@@ -79,6 +81,7 @@ std::queue<std::string> Game::guess(std::string &msg) {
             freq_table[target_[i]]--;
         }
 
+    // TODO: I already have converted to upper case prior to this, check and remove
     for (int i=0; i < target_.size(); ++i) {
         // Already matched
         if (result[i] != '_') continue;
@@ -145,6 +148,11 @@ int main(void) {
             auto message = server.next();
             std::queue<std::string> response = handle_client(message, games);
             while (!response.empty()) {
+                if (response.front() == "") {
+                    server.kick(message.fd);
+                    continue;
+                }
+
                 server.send(message.fd, response.front());
                 response.pop();
             }
@@ -161,10 +169,9 @@ std::queue<std::string> handle_client(Message m, std::unordered_map<int, Game> &
         // process next step of game;
         response = g.at(m.fd).guess(m.payload);
     else {
-        // TODO: We need to handle a server kick plus send message to client to 
-        //       let them know of the mistake.
+        // TODO: implllment an enum for all these string vals 
         if (m.payload != "START GAME") {
-            //server.kick() // am i gonna have to pass in server now? handle in main?
+            response.push(""); 
             return response; 
         }
 

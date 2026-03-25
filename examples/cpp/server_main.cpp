@@ -35,17 +35,18 @@ std::string Game::start() {
 /* */
 // Could maybe do this better
 std::string Game::generate_word_() { 
-    std::fstream in;
+    std::fstream in(target_path_);
     std::string word;
     std::vector<std::string> words;
     while (in >> word)
         words.push_back(word);
-    // std::mt19937 gen;
-    // std::uniform_int_distribution<> r(0, words.size()-1);
+    if (words.empty()) throw std::runtime_error("Words database is missing");
+    std::mt19937 gen(std::random_device{}());
+    std::uniform_int_distribution<size_t> r(0, words.size()-1);
     
-    // return words.at(r(gen));
+    return words.at(r(gen));
     // return words.at(5);
-    return "HELLO";
+    // return "HELLO";
 }
 
 /* */
@@ -107,18 +108,9 @@ std::queue<std::string> Game::guess(std::string &msg) {
 /* */
 std::string Game::parse_guess_(std::string &guess) { 
     // Client doesnt drop server, tries again
-    for (auto i = 0; i != guess.size(); ++i) {
-        if (!isalpha(guess[i]))
-            return "INVALID GUESS";
-        // Cap it while we are here to avoid case mismatch checks in guess()
-        guess[i] = toupper(guess[i]);
-    }
-
-    // Client drops the connection after this error
     auto it = std::find(valid_guess_.begin(), valid_guess_.end(), guess);
     if (it == valid_guess_.end())
-        return "INVALID WORD";
-
+        return "INVALID GUESS";
     return guess;
 }
 

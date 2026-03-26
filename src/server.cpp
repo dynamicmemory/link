@@ -4,6 +4,7 @@
 #include "tcptransport.hpp"
 #include "tlstransport.hpp"
 #include "selectmultiplexer.hpp"
+#include "netevent.hpp"
 
 #include <netdb.h>
 #include <unistd.h>
@@ -89,6 +90,7 @@ void Server::handle_client_(int fd) {
     // Client disconnecting 
     if (n == 0) {
         disconnected_fds.push_back(fd);
+        inbox_.push({fd, NetEvent::CLIENT_DISCONNECT, ""});
         return;
     }
     // Error occured
@@ -102,7 +104,7 @@ void Server::handle_client_(int fd) {
         auto &conn = connections.at(fd);
         conn.protocol->decode(buf, n);
         while (conn.protocol->has_message()) 
-            inbox_.push({fd, conn.protocol->return_message()});
+            inbox_.push({fd, NetEvent::DATA, conn.protocol->return_message()});
     }
 }
 

@@ -43,7 +43,7 @@ int main(void) {
         std::string res = msg.payload;
         // TODO: Return enum or something better on server crash, also warn user
         // Also this would fall into the else below, so may not need this.
-        if (res == "Server disconnected") {
+        if (msg.event == NetEvent::SERVER_DISCONNECT) {
             std::cout << "Server has disconnected... " << std::endl;
             break;
         }

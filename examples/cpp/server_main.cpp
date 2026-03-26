@@ -67,6 +67,7 @@ std::queue<std::string> Game::guess(std::string &msg) {
     for (char c : target_)
         freq_table[c]++;
 
+    // TODO: Bug hiding in wait, is user types INVALID GUESS, client will crash.
     // Parse client input, return on error
     std::string guess_ = parse_guess_(msg);
     if (guess_ != msg) {
@@ -107,6 +108,11 @@ std::queue<std::string> Game::guess(std::string &msg) {
 
 /* */
 std::string Game::parse_guess_(std::string &guess) { 
+    for (auto i = 0; i != guess.size(); ++i) {
+        // Cap it while we are here to avoid case mismatch checks in guess()
+        guess[i] = toupper(guess[i]);
+    }
+
     // Client doesnt drop server, tries again
     auto it = std::find(valid_guess_.begin(), valid_guess_.end(), guess);
     if (it == valid_guess_.end())
@@ -136,22 +142,28 @@ int main(void) {
     while (1) {
         server.tick();
 
-        if (server.has_message()) {
-            auto message = server.next();
-            std::queue<std::string> response = handle_client(message, games);
-            while (!response.empty()) {
-                if (response.front() == "") {
-                    server.kick(message.fd);
-                    continue;
-                }
+        if (!server.has_message()) continue;
 
-                server.send(message.fd, response.front());
-                response.pop();
-            }
+        auto msg = server.next();
+        switch(msg.event) {
+            case NetEvent::CLIENT_DISCONNECT:
+                games.erase(msg.fd);
+                break;
+            case NetEvent::DATA:
+                std::queue<std::string> response = handle_client(msg, games);
+                while (!response.empty()) {
+                    // Bugs galore here? remove fd, pop messages etc?
+                    if (response.front() == "") {
+                        server.kick(msg.fd);
+                        break;
+                    }
+                    server.send(msg.fd, response.front());
+                    response.pop();
+                }
+                break;
         }
     }
-
-    return 0;
+return 0;
 }
 
 /* */
@@ -174,8 +186,8 @@ std::queue<std::string> handle_client(Message m, std::unordered_map<int, Game> &
 
     // Make enum for GAME_OVER, GAME_START, etc
     if (response.back() == "GAME OVER") { 
-            g.erase(m.fd);
-        }
+        g.erase(m.fd);
+    }
     return response;
 }
 

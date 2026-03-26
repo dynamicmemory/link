@@ -4,6 +4,7 @@
 #include "tcptransport.hpp"
 #include "tlstransport.hpp"
 #include "selectmultiplexer.hpp"
+#include "netevent.hpp"
 
 #include <netdb.h>
 #include <unistd.h>
@@ -51,7 +52,7 @@ void Client::tick(int timeout) {
 
         if (n == 0) {
             connected_ = false;
-            inbox_.push({connection_.fd(), "Server disconnected"});
+            inbox_.push({connection_.fd(), NetEvent::SERVER_DISCONNECT, ""});
             return;
         }
 
@@ -63,7 +64,9 @@ void Client::tick(int timeout) {
 
         connection_.protocol->decode(buf, n);
         while (connection_.protocol->has_message()) 
-            inbox_.push({connection_.fd(), connection_.protocol->return_message()});
+            inbox_.push({connection_.fd(), 
+                         NetEvent::DATA,
+                         connection_.protocol->return_message()});
     }
 }
 

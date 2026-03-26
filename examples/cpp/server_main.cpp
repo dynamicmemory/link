@@ -138,6 +138,7 @@ int main(void) {
     Network network;
     Server server = network.create_server(host, port, protocol, transport);
     std::unordered_map<int, Game> games;
+    std::cout << "Wordle server ready" << '\n';
     
     while (1) {
         server.tick();
@@ -145,22 +146,30 @@ int main(void) {
         if (!server.has_message()) continue;
 
         auto msg = server.next();
+
         switch(msg.event) {
             case NetEvent::CLIENT_DISCONNECT:
                 games.erase(msg.fd);
+                std::cout << "Client " << msg.fd << " Has disconnected.\n";
                 break;
-            case NetEvent::DATA:
+            case NetEvent::DATA:{
+                std::cout << "Client " << msg.fd << ": " << msg.payload << '\n';
                 std::queue<std::string> response = handle_client(msg, games);
                 while (!response.empty()) {
                     // Bugs galore here? remove fd, pop messages etc?
+                    // Explore why im returning ""?
                     if (response.front() == "") {
+                        std::cout << "Client " << msg.fd << " was kicked.\n";
                         server.kick(msg.fd);
                         break;
                     }
+                    std::cout << "Server: " << response.front() << '\n';
                     server.send(msg.fd, response.front());
                     response.pop();
                 }
                 break;
+                                }
+            default: break;
         }
     }
 return 0;

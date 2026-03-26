@@ -1,11 +1,30 @@
+/* NewLineProtocol
+ *
+ * Implements a simple newline delimited message protocol.
+ * Each message is transmitted using the following frame format:
+ *
+ *     [message payload][\n]
+ *
+ * Responsibilities:
+ * - Encode outgoing messages with a \n char at the end.
+ * - Decode incoming byte streams into discrete messages.
+ * - Handle partial network reads by buffering incomplete frames.
+ *
+ * This protocol operates on a byte stream and therefore must
+ * internally accumulate data until a full message frame has
+ * been received.
+ *
+ * Safety:
+ * - Frames larger than MAX_FRAME are rejected to prevent
+ *   memory exhaustion or malformed protocol input.
+ */
+
 #include <stdexcept>
 #include <cstring>
 #include <arpa/inet.h>
 #include <algorithm>
 #include "newlineprotocol.hpp"
-
-
-#include <iostream>
+// #include <iostream>
 
 /**/
 NewLineProtocol::NewLineProtocol(uint32_t maxsize) : MAX_FRAME(maxsize) {} 
@@ -17,7 +36,7 @@ std::vector<uint8_t> NewLineProtocol::encode(const std::string &message) {
     if (message.size() > MAX_FRAME)
         throw std::runtime_error("Message exceeds maximum allowed size");
 
-    std::cout << "Encoding: " << message << std::endl;
+    // std::cout << "Encoding: " << message << std::endl;
 
     // Add the '\n' delim for decode to find
     std::vector<uint8_t> data(message.begin(), message.end());
@@ -44,7 +63,7 @@ void NewLineProtocol::decode(const uint8_t *data, size_t len) {
 
         std::string m(buff_.begin(), buff_.end());
         while (!m.empty() && (m.back() == '\n' || m.back() == '\r')) m.pop_back();
-        std::cout << "Decoded: " << m << std::endl;
+        // std::cout << "Decoded: " << m << std::endl;
         messages_.push(std::move(m));
 
         // Clear storage +1 for the newline
@@ -68,6 +87,7 @@ std::string NewLineProtocol::return_message() {
     return message;
 }
 
+// TODO: Review Protocol interface, perhaps remove these too as mandatory
 /* Not used in newline
  * @param data Pointer to the buffer where the encoded length will be written.
  * @param len  Payload size in bytes. */
@@ -81,23 +101,4 @@ uint32_t NewLineProtocol::decode_length(uint8_t *data) {
     uint32_t place_holder;
     return place_holder;
 }
-/* NewLineProtocol
- *
- * Implements a simple newline delimited message protocol.
- * Each message is transmitted using the following frame format:
- *
- *     [message payload][\n]
- *
- * Responsibilities:
- * - Encode outgoing messages with a \n char at the end.
- * - Decode incoming byte streams into discrete messages.
- * - Handle partial network reads by buffering incomplete frames.
- *
- * This protocol operates on a byte stream and therefore must
- * internally accumulate data until a full message frame has
- * been received.
- *
- * Safety:
- * - Frames larger than MAX_FRAME are rejected to prevent
- *   memory exhaustion or malformed protocol input.
- */
+

@@ -84,7 +84,7 @@ Message Client::next() {
     return m;
 }
 
-/* Returns the current clients connections status to the server*/ 
+/* Returns the current clients connections status to the server */ 
 bool Client::is_connected() {
     return connected_;
 }

@@ -1,3 +1,4 @@
+// TODO: Build logging system to log all // out print statements
 /* TCPSocket manages the lifetime of a socket descriptor and ensures it is 
  * automatically close when the object is destroyed. 
  *
@@ -14,8 +15,11 @@
 
 // Constructors
 TCPSocket::TCPSocket(int fd) : fd_(fd) {}
-TCPSocket::~TCPSocket() { if (fd_ >= 0) ::close(fd_); 
-    std::cout << fd_ << " has been destoryed" << '\n'; }
+TCPSocket::~TCPSocket() { 
+    if (fd_ >= 0) 
+        ::close(fd_); 
+    // std::cout << fd_ << " has been destoryed" << '\n'; 
+}
 
 // Moves
 TCPSocket::TCPSocket(TCPSocket &&rhs) { 
@@ -40,11 +44,11 @@ addrinfo *TCPSocket::address_(const std::string &host, const std::string &port, 
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_family = AF_UNSPEC;
     if (passive) hints.ai_flags = AI_PASSIVE;
-    std::cout << "Setting up: " << host << ":" << port << '\n';
+    // std::cout << "Setting up: " << host << ":" << port << '\n';
 
     int status = ::getaddrinfo(host.c_str(), port.c_str(), &hints, &addr);
     if (status != 0) { throw std::runtime_error(gai_strerror(status)); }
-    std::cout << "getaddrinfo was successful" << '\n';
+    // std::cout << "getaddrinfo was successful" << '\n';
 
     return addr;
 }
@@ -53,7 +57,7 @@ addrinfo *TCPSocket::address_(const std::string &host, const std::string &port, 
 int TCPSocket::socket_(addrinfo *addr) {
     int fd = ::socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
     if (fd < 0) { throw std::runtime_error("Socket Failed"); }
-    std::cout << "socket was successful, fd: " << fd << '\n';
+    // std::cout << "socket was successful, fd: " << fd << '\n';
 
     return fd;
 }
@@ -81,7 +85,7 @@ TCPSocket TCPSocket::server_socket(const std::string &host, const std::string &p
         freeaddrinfo(addr);
         throw std::runtime_error("Bind Failed");
     }
-    std::cout << "Bind was successful: " << b << '\n';
+    // std::cout << "Bind was successful: " << b << '\n';
     freeaddrinfo(addr);
 
     return TCPSocket(fd);
@@ -110,7 +114,7 @@ TCPSocket TCPSocket::client_socket(const std::string &host, const std::string &p
         freeaddrinfo(addr);
         throw std::runtime_error("Connect Failed");
     }
-    std::cout << "connection was successful: " << c << '\n';
+    // std::cout << "connection was successful: " << c << '\n';
     freeaddrinfo(addr);
 
     return TCPSocket(fd);
@@ -119,12 +123,12 @@ TCPSocket TCPSocket::client_socket(const std::string &host, const std::string &p
 /**/
 void TCPSocket::listen_socket() {
     int listen = ::listen(fd_, SOMAXCONN);
-    std::cout << "Listen for connections " << listen << '\n';
+    // std::cout << "Listen for connections " << listen << '\n';
 }
 
 /**/
 TCPSocket TCPSocket::accept_client(int fd) {
-    std::cout << "Start of accept" << "\n";
+    // std::cout << "Start of accept" << "\n";
     struct sockaddr_storage client_addr;
     socklen_t addr_len = sizeof(client_addr);
     int client_socket = ::accept(fd, (struct sockaddr *)&client_addr, 
@@ -133,9 +137,9 @@ TCPSocket TCPSocket::accept_client(int fd) {
     if (client_socket < 0) {
         throw std::runtime_error("Accept Failed");
     }
-    std::cout << "After accept call" << "\n";
+    // std::cout << "After accept call" << "\n";
 
-    std::cout << "Client accepted" << "\n";
+    // std::cout << "Client accepted" << "\n";
     return TCPSocket(client_socket);
 }
 
@@ -179,7 +183,3 @@ bool TCPSocket::send_all(const uint8_t *buf, size_t len) {
 ssize_t TCPSocket::recieve(uint8_t *buf, size_t n) { 
     return ::recv(fd_, buf, n, 0);
 }
-
-
-
-

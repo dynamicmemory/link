@@ -1,76 +1,65 @@
 #include <iostream>
 #include <string>
-#include <fstream>
-#include <algorithm>
+#include <array>
 #include "network.hpp"
-#include "client.hpp"
 
-std::string get_valid_guess_(std::vector<std::string> &);
-std::string get_guess_();
-bool check_hint_(std::string &, std::string &);
+struct Args {
+    std::string host;
+    std::string port;
+};
 
-int main(void) {
-    std::string host = "127.0.0.1";
-    std::string port = "1991";
+Args parse_args(int, char **);
+std::string get_guess();
+bool check_hint(const std::string &, const std::string &);
+
+// TODO: Check networking code for throw or err return when host or port is wrong
+int main(int argc, char **argv) {
     std::string protocol = "newline";
     std::string transport = "tcp";
-    std::string last_guess_(5,'_');
-    // std::string guess_path_ = "../examples/cpp/word_lists/guess.txt";
-    // std::vector<std::string> valid_word_list_;
+    std::string last_guess(5,'_');
+    Args args = parse_args(argc, argv); 
     Network n;
+
     // set up 
-    Client client = n.create_client(host, port, protocol, transport);
-
-    // TODO: COULD CAUSE DEATH, NOT TESTED YET
-    while (!client.is_ready())
-        continue;
-
+    Client client = n.create_client(args.host, args.port, protocol, transport);
+    while (!client.is_ready()) continue;
     client.send("START GAME");
-    // std::ifstream in(guess_path_);
-    // std::string word;
-    // while (in >> word) {
-    //     valid_word_list_.push_back(word);
-    // }
 
     // Game loop
     while (1) {
-        // if (!client.is_ready()) continue;
         client.tick();
-
         if(!client.has_message()) continue;
+        Message response = client.next();
 
-        auto msg = client.next();
-        std::string res = msg.payload;
-        // TODO: Return enum or something better on server crash, also warn user
-        // Also this would fall into the else below, so may not need this.
-        if (msg.event == NetEvent::SERVER_DISCONNECT) {
+        // Exit on server disconnect
+        if (response.event == NetEvent::SERVER_DISCONNECT) {
             std::cout << "Server has disconnected, exiting... " << std::endl;
             break;
         }
+        std::string msg = response.payload;
 
-        // Client sent invalid word 
-        if (res == "INVALID GUESS") {
+        // user sent invalid word 
+        if (msg == "INVALID GUESS") {
             std::cout << "Invalid input, 5 letter words only" << '\n';
-            client.send(get_guess_());
+            client.send(get_guess());
         }
         // Normal guess 
-        else if (res.size() == 5 && check_hint_(res, last_guess_)) {
-            std::cout << "Current hint: " << msg.payload << '\n';
-            std::string guess = get_guess_();
-            last_guess_ = guess;
-            client.send(guess);
+        else if (msg.size() == 5 && check_hint(msg, last_guess)) {
+            std::cout << "Current hint: " << response.payload << '\n';
+            last_guess = get_guess();
+            client.send(last_guess);
         }
         // Score
-        else if (isdigit(res[0])) {
-            std::cout << "You're score was: " << res << '\n';
+        else if (!msg.empty() && std::isdigit(msg[0])) {
+            std::cout << "You're score was: " << msg << '\n';
         }
         // End game
-        else if (res == "GAME OVER") {
+        else if (msg == "GAME OVER") {
             break;
         }
         // Server sent unrecognizable command
         else {
-            std::cout << "Fatal error, disconnecting\n";
+            std::cout << "Ivalid server command, exiting...\n";
             break;
         }
     }
@@ -78,39 +67,39 @@ int main(void) {
 }
 
 /**/
-std::string get_guess_() {
+Args parse_args(int argc, char *argv[]) {
+    Args args {"127.0.0.1", "1991"};
+    if (argc == 1) args.host = argv[1];
+    if (argc == 2) args.port = argv[2];
+
+    return args;
+}
+
+/**/
+std::string get_guess() {
     std::string word;
     std::cout << "Enter a 5 letter word: ";
     std::cin >> word;
     return word;
 }
 
-// TODO: This needs a modern facelift
-bool check_hint_(std::string &hint, std::string &prev) {
+/**/
+bool check_hint(const std::string &hint, const std::string &prev) {
     if (hint == "_____") return true;
-    for (int i=0; i < hint.size(); ++i) { 
-        if (hint[i] == '_') continue;
-        for (int j=0; j < prev.size(); ++j)
-            if (toupper(hint[i]) == toupper(prev[j]))
-                return true;
-    }
-    return false;
-}
+    std::array<int, 26> hint_freq;
+    std::array<int, 26> prev_freq;
 
-/*For client input validation, not needed yet*/
-std::string get_valid_guess_(std::vector<std::string> &list) {
-    std::string word;
-    while (1) {
-        std::cout << "Enter guess, 5 letters, balh:";
-        std::cin >> word;
-        // TODO: Use iterators
-        for (int i=0; i<word.size(); ++i) word[i] = toupper(word[i]);
-        // word.pop_back();
-        auto search = std::find(list.begin(), list.end(), word);
-        if (search != list.end()) {
-            return word;
-        }
-        else 
-            std::cout << "Not a valid word\n";
+    // Populate both frequency tables 
+    for (auto c : hint) {
+        if (c == '_') continue;
+        hint_freq[std::toupper(c) - 'A']++;
     }
+    for (auto c : prev) 
+        prev_freq[std::toupper(c) - 'A']++;
+    // compare that hint is contained in prev
+    for (int i=0; i < 26; ++i)
+        if (hint_freq[i] > prev_freq[i])
+            return false;
+
+    return true;
 }

@@ -45,8 +45,6 @@ std::string Game::generate_word_() {
     std::uniform_int_distribution<size_t> r(0, words.size()-1);
     
     return words.at(r(gen));
-    // return words.at(5);
-    // return "HELLO";
 }
 
 /* */

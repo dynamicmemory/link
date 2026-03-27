@@ -19,17 +19,25 @@ int main(int argc, char **argv) {
     std::string last_guess(5,'_');
     Args args = parse_args(argc, argv); 
     Network n;
+    std::unique_ptr<Client> client;
 
     // set up 
-    Client client = n.create_client(args.host, args.port, protocol, transport);
-    while (!client.is_ready()) continue;
-    client.send("START GAME");
+    try {
+        client = std::make_unique<Client>(
+                n.create_client(args.host, args.port, protocol, transport));
+    } catch (std::runtime_error &e) {
+        std::cerr << "Connection failed: " << e.what() << std::endl;
+        return 1;
+    }
+
+    while (!client->is_ready()) continue;
+    client->send("START GAME");
 
     // Game loop
     while (1) {
-        client.tick();
-        if(!client.has_message()) continue;
-        Message response = client.next();
+        client->tick();
+        if(!client->has_message()) continue;
+        Message response = client->next();
 
         // Exit on server disconnect
         if (response.event == NetEvent::SERVER_DISCONNECT) {
@@ -41,13 +49,13 @@ int main(int argc, char **argv) {
         // user sent invalid word 
         if (msg == "INVALID GUESS") {
             std::cout << "Invalid input, 5 letter words only" << '\n';
-            client.send(get_guess());
+            client->send(get_guess());
         }
         // Normal guess 
         else if (msg.size() == 5 && check_hint(msg, last_guess)) {
             std::cout << "Current hint: " << response.payload << '\n';
             last_guess = get_guess();
-            client.send(last_guess);
+            client->send(last_guess);
         }
         // Score
         else if (!msg.empty() && std::isdigit(msg[0])) {
@@ -69,8 +77,8 @@ int main(int argc, char **argv) {
 /**/
 Args parse_args(int argc, char *argv[]) {
     Args args {"127.0.0.1", "1991"};
-    if (argc == 1) args.host = argv[1];
-    if (argc == 2) args.port = argv[2];
+    if (argc == 2) args.host = argv[1];
+    if (argc == 3) args.port = argv[2];
 
     return args;
 }
@@ -85,6 +93,7 @@ std::string get_guess() {
 
 /**/
 bool check_hint(const std::string &hint, const std::string &prev) {
+    return true;
     if (hint == "_____") return true;
     std::array<int, 26> hint_freq;
     std::array<int, 26> prev_freq;

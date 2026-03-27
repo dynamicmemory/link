@@ -47,7 +47,10 @@ addrinfo *TCPSocket::address_(const std::string &host, const std::string &port, 
     // std::cout << "Setting up: " << host << ":" << port << '\n';
 
     int status = ::getaddrinfo(host.c_str(), port.c_str(), &hints, &addr);
-    if (status != 0) { throw std::runtime_error(gai_strerror(status)); }
+    if (status != 0) { 
+        throw std::runtime_error("Could not resolve host/port (" +
+                host + ":" + port + "): " + gai_strerror(status)); 
+    }
     // std::cout << "getaddrinfo was successful" << '\n';
 
     return addr;

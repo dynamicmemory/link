@@ -61,7 +61,7 @@ void NewLineProtocol::decode(const uint8_t *data, size_t len) {
         if (it == buff_.end())
             break; // recv didn't get the whole message
 
-        std::string m(buff_.begin(), buff_.end());
+        std::string m(buff_.begin(), it);
         while (!m.empty() && (m.back() == '\n' || m.back() == '\r')) m.pop_back();
         // std::cout << "Decoded: " << m << std::endl;
         messages_.push(std::move(m));

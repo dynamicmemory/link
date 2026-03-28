@@ -6,31 +6,25 @@
 struct Args {
     std::string host;
     std::string port;
+    std::string protocol;
+    std::string transport;
 };
 
 Args parse_args(int, char **);
+std::unique_ptr<Client> connect_to_server(const Args &);
+void handle_response(Client *, const std::string);
 std::string get_guess();
+bool is_valid_hint(const std::string &);
 bool check_hint(const std::string &, const std::string &);
 
-// TODO: Check networking code for throw or err return when host or port is wrong
+
 int main(int argc, char **argv) {
-    std::string protocol = "newline";
-    std::string transport = "tcp";
-    std::string last_guess(5,'_');
     Args args = parse_args(argc, argv); 
-    Network n;
-    std::unique_ptr<Client> client;
+    auto client = connect_to_server(args);
+    if (!client) return 1;
+    std::string last_guess(5,'_');
 
-    // set up 
-    try {
-        client = std::make_unique<Client>(
-                n.create_client(args.host, args.port, protocol, transport));
-    } catch (std::runtime_error &e) {
-        std::cerr << "Connection failed: " << e.what() << std::endl;
-        return 1;
-    }
-
-    while (!client->is_ready()) continue;
+    while (!client->is_ready()) continue; // Only needed for tls not tcp only
     client->send("START GAME");
 
     // Game loop
@@ -44,15 +38,20 @@ int main(int argc, char **argv) {
             std::cout << "Server has disconnected, exiting... " << std::endl;
             break;
         }
-        std::string msg = response.payload;
 
+        std::string msg = response.payload;
         // user sent invalid word 
         if (msg == "INVALID GUESS") {
             std::cout << "Invalid input, 5 letter words only" << '\n';
             client->send(get_guess());
         }
-        // Normal guess 
-        else if (msg.size() == 5 && check_hint(msg, last_guess)) {
+        // only send response and set last_guess if server hint was valid 
+        else if (is_valid_hint(msg)) {
+            if (!check_hint(msg, last_guess)) {
+                std::cout << "Invalid server command, exiting...\n";
+                return 1;
+            }
+
             std::cout << "Current hint: " << response.payload << '\n';
             last_guess = get_guess();
             client->send(last_guess);
@@ -63,24 +62,40 @@ int main(int argc, char **argv) {
         }
         // End game
         else if (msg == "GAME OVER") {
-            break;
+            return 0;
         }
         // Server sent unrecognizable command
         else {
-            std::cout << "Ivalid server command, exiting...\n";
-            break;
+            std::cout << "Invalid server command, exiting...\n";
+            return 1;
         }
     }
     return 0;
 }
 
-/**/
+/* Parses cmd line args for client, allowing user to set host and port number
+ * @params argc - number of args from the cmd line 
+ * @params argc - cmd line arguments 
+ * @return args - struct containing server settings information */
 Args parse_args(int argc, char *argv[]) {
-    Args args {"127.0.0.1", "1991"};
+    Args args {"127.0.0.1", "1991", "newline", "tcp"};
     if (argc == 2) args.host = argv[1];
     if (argc == 3) args.port = argv[2];
 
     return args;
+}
+
+/* */
+std::unique_ptr<Client> connect_to_server(const Args &args) {
+    Network n;
+    // Connect to default or provided host and port  
+    try {
+        return std::make_unique<Client>(n.create_client(args.host, args.port, 
+                                           args.protocol, args.transport));
+    } catch (std::runtime_error &e) {
+        std::cerr << "Connection failed: " << e.what() << std::endl;
+        return nullptr;
+    }
 }
 
 /**/
@@ -91,12 +106,20 @@ std::string get_guess() {
     return word;
 }
 
+/* */
+bool is_valid_hint(const std::string &msg) {
+    if (msg.size() != 5) return false;
+    for (char c : msg)
+        if (!(c == '_' || std::isalpha(c)))
+            return false;
+    return true;
+}
+
 /**/
 bool check_hint(const std::string &hint, const std::string &prev) {
-    return true;
     if (hint == "_____") return true;
-    std::array<int, 26> hint_freq;
-    std::array<int, 26> prev_freq;
+    std::array<int, 26> hint_freq{};
+    std::array<int, 26> prev_freq{};
 
     // Populate both frequency tables 
     for (auto c : hint) {

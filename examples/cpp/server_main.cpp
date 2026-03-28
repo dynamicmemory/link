@@ -29,7 +29,7 @@ std::string Game::start() {
     target_ = generate_word_();
     score_ = 0;
     store_valid_guesses_();
-    return std::string(target_.size(), '_'); // hardcoded for the moment
+    return std::string(target_.size(), '_'); 
 }
 
 /* */
@@ -38,9 +38,12 @@ std::string Game::generate_word_() {
     std::fstream in(target_path_);
     std::string word;
     std::vector<std::string> words;
+
     while (in >> word)
         words.push_back(word);
     if (words.empty()) throw std::runtime_error("Words database is missing");
+
+    // Generate a random int to pick a target word
     std::mt19937 gen(std::random_device{}());
     std::uniform_int_distribution<size_t> r(0, words.size()-1);
     
@@ -65,10 +68,9 @@ std::queue<std::string> Game::guess(std::string &msg) {
     for (char c : target_)
         freq_table[c]++;
 
-    // TODO: Bug hiding in wait, is user types INVALID GUESS, client will crash.
     // Parse client input, return on error
     std::string guess_ = parse_guess_(msg);
-    if (guess_ != msg) {
+    if (guess_ != msg || guess_ == "INVALID GUESS") {
         q.push(guess_);
         return q;
     }
@@ -76,19 +78,18 @@ std::queue<std::string> Game::guess(std::string &msg) {
     // Detect correct placement and char
     std::string result(target_.size(), '_');        
     for (int i=0; i < target_.size(); ++i)
-        if (target_[i] == toupper(guess_[i])) {
+        if (target_[i] == guess_[i]) {
             result[i] = target_[i];
             freq_table[target_[i]]--;
         }
 
-    // TODO: I already have converted to upper case prior to this, check and remove
     for (int i=0; i < target_.size(); ++i) {
         // Already matched
         if (result[i] != '_') continue;
         // Lowercase match, in word, wrong spot and letter left in target
-        if (freq_table[toupper(guess_[i])] > 0) {
-            result[i] = tolower(guess_[i]);
-            freq_table[toupper(guess_[i])]--;
+        if (freq_table[guess_[i]] > 0) {
+            result[i] = std::tolower(guess_[i]);
+            freq_table[guess_[i]]--;
         }
     }
 
@@ -106,12 +107,10 @@ std::queue<std::string> Game::guess(std::string &msg) {
 
 /* */
 std::string Game::parse_guess_(std::string &guess) { 
-    for (auto i = 0; i != guess.size(); ++i) {
-        // Cap it while we are here to avoid case mismatch checks in guess()
-        guess[i] = toupper(guess[i]);
-    }
+    for (auto i = 0; i != guess.size(); ++i) 
+        guess[i] = toupper(guess[i]);            // cap guess 
 
-    // Client doesnt drop server, tries again
+    // returns error if word not found in accepted guesses list
     auto it = std::find(valid_guess_.begin(), valid_guess_.end(), guess);
     if (it == valid_guess_.end())
         return "INVALID GUESS";
@@ -121,66 +120,93 @@ std::string Game::parse_guess_(std::string &guess) {
 // server_main.cpp 
 #include <iostream>
 #include <string>
-#include <map>
+#include <memory>
 
 #include "network.hpp"
 #include "server.hpp"
 
+struct Args {
+    std::string host;
+    std::string port;
+    std::string protocol;
+    std::string transport;
+};
+
+Args parse_args(int, char**);
+std::unique_ptr<Server> create_server(const Args &);
 std::queue<std::string> handle_client(Message, std::unordered_map<int, Game> &);
 
-int main(void) {
-    std::string host = "127.0.0.1";
-    std::string port = "1991";
-    std::string protocol = "newline";
-    std::string transport = "tcp";
-    Network network;
-    Server server = network.create_server(host, port, protocol, transport);
+int main(int argc, char **argv) {
+    Args args = parse_args(argc, argv);
+    auto server = create_server(args);
+    if (!server) return 1;
     std::unordered_map<int, Game> games;
+
     std::cout << "Wordle server ready" << '\n';
-    
     while (1) {
-        server.tick();
+        server->tick();
+        if (!server->has_message()) continue;
+        auto res = server->next();
 
-        if (!server.has_message()) continue;
+        // removes client from the games map if they disconnect
+        if (res.event == NetEvent::CLIENT_DISCONNECT) {
+                games.erase(res.fd);
+                std::cout << "Client " << res.fd << " has disconnected.\n";
+                continue;
+        }
 
-        auto msg = server.next();
-
-        switch(msg.event) {
-            case NetEvent::CLIENT_DISCONNECT:
-                games.erase(msg.fd);
-                std::cout << "Client " << msg.fd << " Has disconnected.\n";
+        std::cout << "Client " << res.fd << ": " << res.payload << '\n';
+        std::queue<std::string> msg = handle_client(res, games);
+        while (!msg.empty()) {
+            // empty messge == START GAME failure, kick client
+            if (msg.front() == "") {
+                std::cout << "Client " << res.fd << " was kicked.\n";
+                server->kick(res.fd);
+                games.erase(res.fd);
                 break;
-            case NetEvent::DATA:{
-                std::cout << "Client " << msg.fd << ": " << msg.payload << '\n';
-                std::queue<std::string> response = handle_client(msg, games);
-                while (!response.empty()) {
-                    // Bugs galore here? remove fd, pop messages etc?
-                    // Explore why im returning ""?
-                    if (response.front() == "") {
-                        std::cout << "Client " << msg.fd << " was kicked.\n";
-                        server.kick(msg.fd);
-                        break;
-                    }
-                    std::cout << "Server: " << response.front() << '\n';
-                    server.send(msg.fd, response.front());
-                    response.pop();
-                }
-                break;
-                                }
-            default: break;
+            }
+            // Send server responses back to client
+            std::cout << "Server: " << msg.front() << '\n';
+            server->send(res.fd, msg.front());
+            msg.pop();
         }
     }
 return 0;
 }
 
+/* Parses cmd line args for the server, allowing user to set port number
+ * @params argc - number of args from the cmd line 
+ * @params argc - cmd line arguments 
+ * @return args - struct containing server settings information */
+Args parse_args(int argc, char *argv[]) {
+    Args args {"0.0.0.0", "1991", "newline", "tcp"};
+    if (argc == 2) args.port = argv[1];
+
+    return args;
+}
+
+/* Returns a pointer to a new server on success or a nullptr if host or port 
+ * number is busy or incorrect */
+std::unique_ptr<Server> create_server(const Args &args) {
+    Network n;
+    // create a server with the passed in port number and default settings 
+    try {
+        return std::make_unique<Server>(n.create_server(args.host, args.port, 
+                                          args.protocol, args.transport));
+    } catch (std::runtime_error &e) {
+        std::cerr << "Server failed: " << e.what() << std::endl;
+        return nullptr;
+    }
+}
+
 /* */
 std::queue<std::string> handle_client(Message m, std::unordered_map<int, Game> &g) {
     std::queue<std::string> response;
+    // game already in progress, process next step;
     if (g.contains(m.fd))
-        // process next step of game;
         response = g.at(m.fd).guess(m.payload);
+    // New game 
     else {
-        // TODO: implllment an enum for all these string vals 
         if (m.payload != "START GAME") {
             response.push(""); 
             return response; 
@@ -191,10 +217,8 @@ std::queue<std::string> handle_client(Message m, std::unordered_map<int, Game> &
         g[m.fd] = std::move(game);
     }
 
-    // Make enum for GAME_OVER, GAME_START, etc
     if (response.back() == "GAME OVER") { 
         g.erase(m.fd);
     }
     return response;
 }
-

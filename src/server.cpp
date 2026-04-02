@@ -1,3 +1,13 @@
+/* Server represents a TCP server that can accept multiple client connections
+ * and handle message-based communication using pluggable transport, protocol 
+ * and multiplexing layers. Also provides a set of APIs for a user to use when 
+ * constructing a server.
+ *
+ * - Call tick() in an event loop to process I/O and accept new clients.
+ * - Use has_message() and next() to retrieve client messages.
+ * - Send messages using send(fd, message).
+ */
+
 #include "server.hpp"
 #include "prefixedlengthprotocol.hpp"
 #include "newlineprotocol.hpp"
@@ -8,9 +18,8 @@
 
 #include <netdb.h>
 #include <unistd.h>
-#include <iostream>
 
-/**/
+/* Server constructor: sets up host, port, protocol, transport and multiplexer*/
 Server::Server(const std::string &host, const std::string &port, 
                const std::string &protocol, const std::string &transport,
                const std::string &multiplexer) : 
@@ -20,21 +29,17 @@ Server::Server(const std::string &host, const std::string &port,
     socket.listen_socket();
     }
 
-/**/
+/* Initialises multiplexer and registers the servers listening socket*/
 void Server::init_() {
     set_multiplexer_();
     multiplexer_->add_fd(socket.fd());
 }
 
-/* Processes I/O events for the server.
- *
- * This method performs the following:
- * - Waits on the multiplexer for readiness events.
+/* Processes I/O events for the server. 
+ * - Waits on the multiplexer for socket readiness events.
  * - Accepts new client connections if the listening socket is ready.
  * - Reads incoming messages from ready clients and stores them in the inbox.
- *
- * Must be called repeatedly in the server's main loop to maintain
- * responsiveness. */
+ * - Handles internal clean ups for socket disconnects. */
 void Server::tick(int timeout) {
     multiplexer_->wait(timeout);
     if (multiplexer_->ready(socket.fd()))
@@ -55,13 +60,8 @@ void Server::tick(int timeout) {
     disconnected_fds.clear();
 }
 
-/* Accepts a new client on the listening socket.
- *
- * - Wraps the client socket in a Connection object.
- * - Registers the client with the multiplexer.
- * - Sets transport and protocol using the server configuration.
- *
- * @param fd Listening socket file descriptor. */
+/* Accepts a new client on the listening socket, wraps the socket in a connections 
+ * object along with its selected transport and protocol objects*/
 void Server::accept_client_(int fd) {
     TCPSocket client_socket = TCPSocket::accept_client(fd);
 
@@ -76,12 +76,9 @@ void Server::accept_client_(int fd) {
     multiplexer_->add_fd(cfd);
 }
 
-/* Handles incoming messages for a specific client.
- *
- * Reads data from the transport, decodes messages via the protocol,
- * and enqueues them in the inbox. Handles client disconnection.
- *
- * @param fd Client file descriptor. */
+/* Handles incoming messages for a specific client, reads data from the 
+ * transport, decodes messages via the protocol, and enqueues them in the inbox. 
+ * Handles client disconnection. */
 void Server::handle_client_(int fd) {
     ssize_t size = 4096;
     uint8_t buf[size];
@@ -108,27 +105,18 @@ void Server::handle_client_(int fd) {
     }
 }
 
-/* Returns whether the server has any fully decoded messages available.
- * @return true if inbox contains messages, false otherwise. */
+/* Returns true if the server has a fully decoded message, false otherwise */  
 bool Server::has_message() { return !inbox_.empty(); }
 
-/* Retrieves the next message from the inbox.
- * Messages are returned in FIFO order and contain:
- * - fd: the client file descriptor
- * - message string
- *
- * @return Next available message. */
+/* Returns the next available message from the servers inbox. */
 Message Server::next() {
     Message m = std::move(inbox_.front());
     inbox_.pop();
     return m;
 }
 
-/* Sends a message to a specific client.
- *
- * Encodes the message via the client's protocol, then writes it
- * to the transport.
- *
+/* Sends a message to a specific client. Encodes the message via the client's 
+ * protocol, then writes it to the transport.
  * @param fd File descriptor of the target client.
  * @param buf Message string to send. */
 void Server::send(int fd, const std::string &buf) {
@@ -171,31 +159,3 @@ void Server::set_multiplexer_() {
     else 
         multiplexer_ = std::make_unique<SelectMultiplexer>();
 }
-
-/**
- * Server
- *
- * Represents a TCP server that can accept multiple client connections
- * and handle message-based communication using pluggable transport
- * and protocol layers.
- *
- * Responsibilities:
- * - Listen on a specified host and port.
- * - Accept incoming client connections.
- * - Manage multiple active connections using a multiplexing strategy
- *   (default: SelectMultiplexer).
- * - Encode outgoing messages via the protocol and send them over the
- *   transport.
- * - Decode incoming messages and store them in an internal inbox for
- *   consumption.
- *
- * - The listening socket is always valid after construction.
- * - Each accepted client is represented by a Connection object.
- * - The multiplexer accurately tracks all client fds.
- * - Messages in the inbox are fully decoded and ready for processing.
- *
- * - Construct a Server via the Network factory or directly.
- * - Call tick() in an event loop to process I/O and accept new clients.
- * - Use has_message() and next() to retrieve client messages.
- * - Send messages using send(fd, message).
- */

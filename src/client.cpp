@@ -1,3 +1,9 @@
+/* Represents a TCP client connection with transport, protocol and multiplexer.
+ * options. Uses transport layer to internally encode and decode messages.
+ * Main use is to provide the library users with a basic set of APIs to use 
+ * in their project.
+ */
+
 #include "client.hpp"
 #include "prefixedlengthprotocol.hpp"
 #include "newlineprotocol.hpp"
@@ -9,7 +15,7 @@
 #include <netdb.h>
 #include <unistd.h>
 
-/**/
+/* Client constructor: sets up host, port, protocol, transport and multiplexer*/
 Client::Client(const std::string &host, 
                const std::string &port, 
                const std::string &protocol, 
@@ -21,7 +27,7 @@ Client::Client(const std::string &host,
     init_();
     }
 
-/**/
+/* Initialize connection and register with multiplexer.*/
 void Client::init_() {
     connection_ = Connection{set_transport_(std::move(socket)), set_protocol_() };
     multiplexer_->add_fd(connection_.fd());
@@ -29,14 +35,14 @@ void Client::init_() {
 }
 
 /* Processes I/O events for the client.
- *
  * - Waits on the multiplexer to see if data is ready.
  * - Reads incoming messages and decodes them into the inbox.
- * - Handles server disconnection or read errors.
- *
- * Must be called repeatedly in the client’s main loop to maintain
- * responsiveness.
- */
+ * - Handles server disconnection or read errors. 
+ * @param timeout - Three base options < 0 will create blocking multiplexer 
+                    behavior.
+                  - 0 will create non-blocking polling like behavior.
+                  - > 0 will timeout the client until the timeout period is over.
+*/
 void Client::tick(int timeout) {
     if (!connected_) return;
 
@@ -70,14 +76,12 @@ void Client::tick(int timeout) {
     }
 }
 
-/* Returns whether the server has any fully decoded messages available.
- * @return true if inbox contains messages, false otherwise. */
+/* Returns true if the client has fully decoded message and false if not.*/
 bool Client::has_message() {
     return !inbox_.empty();
 }
 
-/* Retrieves the next message from the inbox.
- * @return Next available message. */
+/* Retrieves the next message from the inbox. */
 Message Client::next() {
     Message m = std::move(inbox_.front());
     inbox_.pop();
@@ -91,9 +95,7 @@ bool Client::is_connected() {
 
 /* Sends a message to the connected server.
  * - Encodes the message via the protocol layer.
- * - Transmits the entire encoded frame via the transport.
- *
- * @param buf Message string to send. */
+ * - Transmits the entire encoded frame via the transport. */
 void Client::send(const std::string &buf) {
     auto bytes = connection_.protocol->encode(buf);
 
@@ -122,7 +124,7 @@ std::unique_ptr<ITransport> Client::set_transport_(TCPSocket &&socket) {
         return std::make_unique<TCPTransport>(std::move(socket));
 }
 
-/* Configures the multiplexer for the server.*/
+/* Configures the multiplexer for the client.*/
 void Client::set_multiplexer_() {
     if (multistrategy_ == "select")
         multiplexer_ = std::make_unique<SelectMultiplexer>();
@@ -134,24 +136,3 @@ void Client::set_multiplexer_() {
 bool Client::is_ready() {
     return connection_.transport->is_ready();
 }
-
-/**
- * Client
- *
- * Represents a single TCP client connection to a remote server.
- *
- * Responsibilities:
- * - Establish a connection to a specified host and port.
- * - Manage a single Connection instance (transport + protocol).
- * - Use a multiplexer to check readiness for I/O without blocking.
- * - Encode outgoing messages and decode incoming messages.
- * - Provide a message inbox for application consumption.
- *
- * - connection_ always contains a valid transport and protocol.
- * - The multiplexer accurately tracks the connection file descriptor.
- * - Messages in the inbox are fully decoded and ready for retrieval.
- *
- * Limitations:
- * - Currently uses default TCP transport, length-prefixed protocol,
- *   and select-based multiplexing.
- */

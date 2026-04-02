@@ -1,7 +1,5 @@
-/* NewLineProtocol
- *
- * Implements a simple newline delimited message protocol.
- * Each message is transmitted using the following frame format:
+/* NewLineProtocol implements a simple newline delimited message protocol. Each 
+ * message is transmitted using the following frame format:
  *
  *     [message payload][\n]
  *
@@ -9,14 +7,6 @@
  * - Encode outgoing messages with a \n char at the end.
  * - Decode incoming byte streams into discrete messages.
  * - Handle partial network reads by buffering incomplete frames.
- *
- * This protocol operates on a byte stream and therefore must
- * internally accumulate data until a full message frame has
- * been received.
- *
- * Safety:
- * - Frames larger than MAX_FRAME are rejected to prevent
- *   memory exhaustion or malformed protocol input.
  */
 
 #include <stdexcept>
@@ -24,7 +14,6 @@
 #include <arpa/inet.h>
 #include <algorithm>
 #include "newlineprotocol.hpp"
-// #include <iostream>
 
 /**/
 NewLineProtocol::NewLineProtocol(uint32_t maxsize) : MAX_FRAME(maxsize) {} 
@@ -44,11 +33,9 @@ std::vector<uint8_t> NewLineProtocol::encode(const std::string &message) {
     return data;
 } 
 
-/* Processes incoming data from the network.
- * Because TCP delivers a continuous byte stream rather than
- * discrete messages, this function accumulates received bytes
- * into an internal buffer until a complete frame is available
- * using a newline char as the control.
+/* Processes incoming data from the network. This function accumulates recieved 
+ * bytes into an internal buffer until a complete frame is available using a 
+ * newline char as the control.
  *
  * @param data Pointer to newly received bytes.
  * @param len  Number of bytes received from the transport. */
@@ -71,13 +58,12 @@ void NewLineProtocol::decode(const uint8_t *data, size_t len) {
     }
 }
 
-/* Indicates whether a decoded message is available.
- * @return true if at least one fully decoded message is ready to be consumed. */
+/* Returns true if a fully decoded message is available, false otherwise. */
 bool NewLineProtocol::has_message() const {
     return !messages_.empty();
 }
 
-/* @return Next decoded message. */
+/* Returns next fully decoded message. */
 std::string NewLineProtocol::return_message() {
     if (messages_.empty())
         throw std::runtime_error("No message available");
@@ -87,7 +73,8 @@ std::string NewLineProtocol::return_message() {
     return message;
 }
 
-// TODO: Review Protocol interface, perhaps remove these too as mandatory
+// TODO: Review Protocol interface, perhaps remove these two as mandatory and 
+//       implement in protocols where needed.
 /* Not used in newline
  * @param data Pointer to the buffer where the encoded length will be written.
  * @param len  Payload size in bytes. */
@@ -101,4 +88,3 @@ uint32_t NewLineProtocol::decode_length(uint8_t *data) {
     uint32_t place_holder;
     return place_holder;
 }
-

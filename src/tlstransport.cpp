@@ -1,6 +1,10 @@
 // TODO: Add configurable path for certs so user can provide there own.
 // TODO: Handle points on shutdown
 
+/* TLS transport over non-blocking TCP sockets using OpenSSL. Wraps a TCPSocket 
+ * object and performs the TLS handshake, encryption and decryption for messages.
+ * The handshake is non-blocking as to work with multiplexing layer, its progressed 
+ * through is_ready().*/
 #include "tlstransport.hpp"
 #include <stdexcept>
 #include <fcntl.h>
@@ -9,10 +13,11 @@
 SSL_CTX *TLSTransport::server_ctx_ = nullptr;
 SSL_CTX *TLSTransport::client_ctx_ = nullptr;
 
-/**/
+/* Initialises TLS context, binds socket and prepares for handshake*/
 TLSTransport::TLSTransport(TCPSocket socket, bool server) : 
     socket_(std::move(socket)), server_(server) {
 
+    // One-time global OpenSSL + context initialisation
     if (!server_ctx_ && !client_ctx_) {
         SSL_library_init();
         OpenSSL_add_ssl_algorithms();
@@ -21,8 +26,8 @@ TLSTransport::TLSTransport(TCPSocket socket, bool server) :
         server_ctx_ = ::SSL_CTX_new(TLS_server_method());
         client_ctx_ = ::SSL_CTX_new(TLS_client_method());
 
-        ::SSL_CTX_use_certificate_file(server_ctx_, "../certs/server.crt", SSL_FILETYPE_PEM);
-        ::SSL_CTX_use_PrivateKey_file(server_ctx_, "../certs/server.key", SSL_FILETYPE_PEM);
+        ::SSL_CTX_use_certificate_file(server_ctx_, "./certs/server.crt", SSL_FILETYPE_PEM);
+        ::SSL_CTX_use_PrivateKey_file(server_ctx_, "./certs/server.key", SSL_FILETYPE_PEM);
     }
 
     SSL_CTX *ctx = server_ ? server_ctx_: client_ctx_;
@@ -47,7 +52,8 @@ TLSTransport::~TLSTransport() {
 /**/
 int TLSTransport::fd() const { return socket_.fd();}
 
-/**/
+// TODO: The return type is bool, does this even make sense?
+/*Sends full buffer via TLS, retries on incomplete sends*/
 bool TLSTransport::send_all(const uint8_t *data, size_t len) {
     size_t total = 0;
     while (total < len) {
@@ -61,7 +67,7 @@ bool TLSTransport::send_all(const uint8_t *data, size_t len) {
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
             continue;
         }
-        // The return type is bool, does this even make sense?
+
         if (err == SSL_ERROR_ZERO_RETURN) {  
             handshake_complete_ = false;
             return false;
@@ -72,7 +78,7 @@ bool TLSTransport::send_all(const uint8_t *data, size_t len) {
     return true;
 }
 
-/**/
+/* Recieces decrypted bytes from TLS, returns > 0 on read, 0 on error, -1 for retry*/
 ssize_t TLSTransport::recieve(uint8_t *buf, size_t n) { 
     ssize_t ret = ::SSL_read(ssl_, buf, n);
     if (ret > 0) return ret;
@@ -91,6 +97,7 @@ ssize_t TLSTransport::recieve(uint8_t *buf, size_t n) {
 }
 
 // TODO: Can return void if new solution works
+/* Progress TLS handshake, requires multiple calls, returns true when complete*/
 bool TLSTransport::do_handshake() {
     int ret = (server_) ? ::SSL_accept(ssl_) : ::SSL_connect(ssl_); 
 
@@ -115,6 +122,8 @@ bool TLSTransport::do_handshake() {
     throw std::runtime_error(std::string("TLS Handshake failed.")+buf);
 }
 
+/* Returns true once tls handshake is complete, otherwise false + moves it one 
+ * step forward.*/
 bool TLSTransport::is_ready() {
     if (handshake_complete_)
         return handshake_complete_;

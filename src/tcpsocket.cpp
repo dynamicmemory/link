@@ -1,11 +1,7 @@
 // TODO: Build logging system to log all // out print statements
+
 /* TCPSocket manages the lifetime of a socket descriptor and ensures it is 
- * automatically close when the object is destroyed. 
- *
- * The class provides helper
- * functions for creating client and server sockets as well as all associated 
- * operations.
-*/
+ * automatically closed when the object is destroyed. */
 #include <iostream>
 #include <string>
 #include <netdb.h>
@@ -27,6 +23,7 @@ TCPSocket::TCPSocket(TCPSocket &&rhs) {
     rhs.fd_ = -1;
 }
 
+// Operator overloads
 TCPSocket &TCPSocket::operator=(TCPSocket &&rhs) {
     if (this == &rhs) return *this;
     if (fd_ >= 0) {
@@ -59,25 +56,16 @@ addrinfo *TCPSocket::address_(const std::string &host, const std::string &port, 
 // Returns a socket
 int TCPSocket::socket_(addrinfo *addr) {
     int fd = ::socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
-    if (fd < 0) { throw std::runtime_error("Socket Failed"); }
+    if (fd < 0) 
+        throw std::runtime_error(std::string("Socket Failed ") + 
+                std::strerror(errno));
     // std::cout << "socket was successful, fd: " << fd << '\n';
 
     return fd;
 }
 
-/* Creates and binds a TCP socket for server use, simplifies creation process.
- * Internally does: 
- *   - getaddrinfo()
- *   - socket()
- *   - bind()
- *
- * The returned socket is ready to enter the listening state.
- *
- * @param host Host address to bind to.
- * @param port Port number or service name.
- *
- * @return TCPSocket
-*/
+/* Creates and binds a TCP socket for server use, the returned socket is ready 
+ * to enter the listening state. */
 TCPSocket TCPSocket::server_socket(const std::string &host, const std::string &port) {
     struct addrinfo *addr = address_(host, port, true); 
     int fd = socket_(addr);
@@ -86,7 +74,8 @@ TCPSocket TCPSocket::server_socket(const std::string &host, const std::string &p
     if (b != 0) {
         ::close(fd);
         freeaddrinfo(addr);
-        throw std::runtime_error("Bind Failed");
+        throw std::runtime_error(std::string("Error using socket - ") +
+                std::strerror(errno));
     }
     // std::cout << "Bind was successful: " << b << '\n';
     freeaddrinfo(addr);
@@ -94,19 +83,8 @@ TCPSocket TCPSocket::server_socket(const std::string &host, const std::string &p
     return TCPSocket(fd);
 }
 
-/* Creates and connects a TCP socket for client use, simplifies creation process.
- * Internally does: 
- *   - getaddrinfo()
- *   - socket()
- *   - connect()
- *
- * The returned socket is ready to enter the listening state.
- *
- * @param host Server hostname or IP.
- * @param port Server Port number.
- *
- * @return TCPSocket
-*/
+/* Creates and connects a TCP socket for client use, The returned socket is 
+ * ready to enter the listening state. */
 TCPSocket TCPSocket::client_socket(const std::string &host, const std::string &port) {
     struct addrinfo *addr = address_(host, port, false); 
     int fd = socket_(addr);
@@ -115,7 +93,8 @@ TCPSocket TCPSocket::client_socket(const std::string &host, const std::string &p
     if (c != 0) {
         ::close(fd);
         freeaddrinfo(addr);
-        throw std::runtime_error("Connect Failed");
+        throw std::runtime_error(std::string("Error connecting socket - ") +
+                std::strerror(errno));
     }
     // std::cout << "connection was successful: " << c << '\n';
     freeaddrinfo(addr);
@@ -131,35 +110,26 @@ void TCPSocket::listen_socket() {
 
 /**/
 TCPSocket TCPSocket::accept_client(int fd) {
-    // std::cout << "Start of accept" << "\n";
     struct sockaddr_storage client_addr;
     socklen_t addr_len = sizeof(client_addr);
     int client_socket = ::accept(fd, (struct sockaddr *)&client_addr, 
             &addr_len);
 
     if (client_socket < 0) {
-        throw std::runtime_error("Accept Failed");
+        throw std::runtime_error(std::string("Error accepting socket - ") +
+                std::strerror(errno));
     }
-    // std::cout << "After accept call" << "\n";
-
-    // std::cout << "Client accepted" << "\n";
     return TCPSocket(client_socket);
 }
 
-/**/
+/* Returns the underlying fd for this socket */
 int TCPSocket::fd() const { return fd_; }
 
-/* Sends the entire buffer over the socket.
- *
- * This function repeatedly calls send() until the entire
- * buffer has been transmitted or an unrecoverable error occurs.
- *
- * @param buf Pointer to data buffer.
- * @param len Number of bytes to send.
+/* Sends the entire buffer over the socket. This function repeatedly calls send() 
+ * until the entire buffer has been transmitted or an unrecoverable error occurs.
  *
  * @return true if all bytes were successfully sent.
- * @return false if a transmission error occurred.
- */
+ * @return false if a transmission error occurred. */
 bool TCPSocket::send_all(const uint8_t *buf, size_t len) { 
     size_t total = 0;
     while (total < len) {
@@ -174,15 +144,7 @@ bool TCPSocket::send_all(const uint8_t *buf, size_t len) {
     return true;
 }
 
-/* Receives data from the socket.
- *
- * @param buf Buffer to store received data.
- * @param len Maximum number of bytes to read.
- *
- * @return Number of bytes received.
- * @return 0 if the peer closed the connection.
- * @return -1 if an error occurred.
- */
+/* Receives data from the socket. */
 ssize_t TCPSocket::recieve(uint8_t *buf, size_t n) { 
     return ::recv(fd_, buf, n, 0);
 }

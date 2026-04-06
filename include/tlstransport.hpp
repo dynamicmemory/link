@@ -23,4 +23,6 @@ public:
     bool send_all(const uint8_t *, size_t) override;
     bool do_handshake();
     bool is_ready() override;
+
+    void verify_server_cert(const std::string &);
 };

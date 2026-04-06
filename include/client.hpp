@@ -43,5 +43,6 @@ public:
     void set_multiplexer_();
 
     bool is_ready();
+    void verify_certificate(std::string &);
 };
 

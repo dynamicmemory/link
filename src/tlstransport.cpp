@@ -130,3 +130,23 @@ bool TLSTransport::is_ready() {
     do_handshake();
     return handshake_complete_;
 }
+
+/**/
+void TLSTransport::verify_server_cert(const std::string &client_cpy) {
+    X509 *cert = SSL_get_peer_certificate(ssl_);
+    if (!cert) throw std::runtime_error("This server has no certificate");
+
+    // Convert clients copy of the pubkey to X509 format for comparison
+    BIO *bio = BIO_new_mem_buf(client_cpy.data(), client_cpy.size());
+    X509 * cc = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+    BIO_free(bio);
+
+    if (!cc)
+        throw std::runtime_error("Invalid client PEM certificate, unable to parse");
+    if (X509_cmp(cert, cc) != 0) {
+        X509_free(cert);
+        throw std::runtime_error("Server certificate does not match known certificate");
+    }
+
+    X509_free(cert);
+}

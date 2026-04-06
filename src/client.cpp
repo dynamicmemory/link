@@ -136,3 +136,11 @@ void Client::set_multiplexer_() {
 bool Client::is_ready() {
     return connection_.transport->is_ready();
 }
+
+
+/* */
+void Client::verify_certificate(std::string &cert) { 
+    TLSTransport *tls = dynamic_cast<TLSTransport*>(connection_.transport.get()); 
+    if (!tls) throw std::runtime_error("Transport is not tls"); 
+    tls->verify_server_cert(cert); 
+}

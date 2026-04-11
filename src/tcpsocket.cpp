@@ -1,7 +1,3 @@
-// TODO: Build logging system to log all // out print statements
-
-/* TCPSocket manages the lifetime of a socket descriptor and ensures it is 
- * automatically closed when the object is destroyed. */
 #include <iostream>
 #include <string>
 #include <netdb.h>
@@ -127,9 +123,7 @@ int TCPSocket::fd() const { return fd_; }
 
 /* Sends the entire buffer over the socket. This function repeatedly calls send() 
  * until the entire buffer has been transmitted or an unrecoverable error occurs.
- *
- * @return true if all bytes were successfully sent.
- * @return false if a transmission error occurred. */
+ */
 bool TCPSocket::send_all(const uint8_t *buf, size_t len) { 
     size_t total = 0;
     while (total < len) {

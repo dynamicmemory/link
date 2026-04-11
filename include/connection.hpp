@@ -4,13 +4,6 @@
 #include "iprotocol.hpp"
 #include "itransport.hpp"
 
-struct Connection {
-    std::unique_ptr<ITransport> transport;
-    std::unique_ptr<IProtocol> protocol;
-
-    int fd() const { return transport->fd(); }
-};
-
 /**
  * Connection
  *
@@ -35,3 +28,11 @@ struct Connection {
  * - Incoming and outgoing data is routed through Connection for
  *   encoding/decoding and transport I/O.
  */
+struct Connection {
+    std::unique_ptr<ITransport> transport;
+    std::unique_ptr<IProtocol> protocol;
+
+    int fd() const { return transport->fd(); }
+};
+
+

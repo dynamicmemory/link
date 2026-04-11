@@ -1,9 +1,3 @@
-/* Represents a TCP client connection with transport, protocol and multiplexer.
- * options. Uses transport layer to internally encode and decode messages.
- * Main use is to provide the library users with a basic set of APIs to use 
- * in their project.
- */
-
 #include "client.hpp"
 #include "prefixedlengthprotocol.hpp"
 #include "newlineprotocol.hpp"
@@ -15,7 +9,6 @@
 #include <netdb.h>
 #include <unistd.h>
 
-/* Client constructor: sets up host, port, protocol, transport and multiplexer*/
 Client::Client(const std::string &host, 
                const std::string &port, 
                const std::string &protocol, 
@@ -27,22 +20,37 @@ Client::Client(const std::string &host,
     init_();
     }
 
-/* Initialize connection and register with multiplexer.*/
+/*
+ * Initializes the connection pipeline:
+ *  - wraps the raw socket in a transport implementation
+ *  - attaches the configured protocol encoder/decoder
+ *  - registers the socket with the multiplexer
+ *
+ * After this call, the client is considered connected at transport level.
+ */
 void Client::init_() {
-    connection_ = Connection{set_transport_(std::move(socket)), set_protocol_() };
+    connection_ = Connection{
+        set_transport_(std::move(socket)), 
+        set_protocol_() 
+    };
+
     multiplexer_->add_fd(connection_.fd());
     connected_ = true;
 }
 
-/* Processes I/O events for the client.
- * - Waits on the multiplexer to see if data is ready.
- * - Reads incoming messages and decodes them into the inbox.
- * - Handles server disconnection or read errors. 
- * @param timeout - Three base options < 0 will create blocking multiplexer 
-                    behavior.
-                  - 0 will create non-blocking polling like behavior.
-                  - > 0 will timeout the client until the timeout period is over.
-*/
+/*
+ * Event loop step for the client.
+ *
+ * This function:
+ *  - waits for socket readiness via the multiplexer
+ *  - reads raw bytes from the transport layer
+ *  - feeds bytes into the protocol decoder
+ *  - extracts complete messages into the inbox queue
+ *
+ * Connection failure handling:
+ *  - n == 0  → peer closed connection
+ *  - n < 0   → transient error (EAGAIN/EWOULDBLOCK) or fatal error
+ */
 void Client::tick(int timeout) {
     if (!connected_) return;
 
@@ -56,18 +64,21 @@ void Client::tick(int timeout) {
         uint8_t buf[size];
         ssize_t n = connection_.transport->recieve(buf, size);
 
+        // The server has disonnected
         if (n == 0) {
             connected_ = false;
             inbox_.push({connection_.fd(), NetEvent::SERVER_DISCONNECT, ""});
             return;
         }
 
+        // Data not finished reading or error
         if (n < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) 
                 return;
             throw std::runtime_error("Client: recv failed");
         }
 
+        // Decode the message and send it to the inbox ready for the user.
         connection_.protocol->decode(buf, n);
         while (connection_.protocol->has_message()) 
             inbox_.push({connection_.fd(), 
@@ -93,9 +104,12 @@ bool Client::is_connected() {
     return connected_;
 }
 
-/* Sends a message to the connected server.
- * - Encodes the message via the protocol layer.
- * - Transmits the entire encoded frame via the transport. */
+/*
+ * Encodes and sends a message through:
+ *  protocol → transport → socket
+ *
+ * The call is synchronous and will attempt to send the full buffer.
+ */
 void Client::send(const std::string &buf) {
     auto bytes = connection_.protocol->encode(buf);
 
@@ -137,8 +151,14 @@ bool Client::is_ready() {
     return connection_.transport->is_ready();
 }
 
-
-/* */
+/*
+ * TLS-only utility:
+ * Compares provided certificate against the server certificate.
+ *
+ * Throws if:
+ *  - transport is not TLS
+ *  - certificate validation fails
+ */
 void Client::verify_certificate(std::string &cert) { 
     TLSTransport *tls = dynamic_cast<TLSTransport*>(connection_.transport.get()); 
     if (!tls) throw std::runtime_error("Transport is not tls"); 

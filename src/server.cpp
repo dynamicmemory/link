@@ -1,13 +1,3 @@
-/* Server represents a TCP server that can accept multiple client connections
- * and handle message-based communication using pluggable transport, protocol 
- * and multiplexing layers. Also provides a set of APIs for a user to use when 
- * constructing a server.
- *
- * - Call tick() in an event loop to process I/O and accept new clients.
- * - Use has_message() and next() to retrieve client messages.
- * - Send messages using send(fd, message).
- */
-
 #include "server.hpp"
 #include "prefixedlengthprotocol.hpp"
 #include "newlineprotocol.hpp"
@@ -19,7 +9,6 @@
 #include <netdb.h>
 #include <unistd.h>
 
-/* Server constructor: sets up host, port, protocol, transport and multiplexer*/
 Server::Server(const std::string &host, const std::string &port, 
                const std::string &protocol, const std::string &transport,
                const std::string &multiplexer) : 
@@ -29,22 +18,36 @@ Server::Server(const std::string &host, const std::string &port,
     socket.listen_socket();
     }
 
-/* Initialises multiplexer and registers the servers listening socket*/
+/*
+ * Initializes multiplexer and registers the listening socket.
+ * After this, the server is ready to accept incoming connections.
+ */
 void Server::init_() {
     set_multiplexer_();
     multiplexer_->add_fd(socket.fd());
 }
 
-/* Processes I/O events for the server. 
- * - Waits on the multiplexer for socket readiness events.
- * - Accepts new client connections if the listening socket is ready.
- * - Reads incoming messages from ready clients and stores them in the inbox.
- * - Handles internal clean ups for socket disconnects. */
+/*
+ * Event loop step for the server.
+ *
+ * Execution order:
+ *  1. Wait for I/O readiness
+ *  2. Accept new connections (if listening socket is ready)
+ *  3. Process readable client sockets
+ *  4. Clean up disconnected clients
+ *
+ * Important:
+ *  - Client removal is deferred to avoid iterator invalidation
+ *    during iteration over `connections`. 
+ */
 void Server::tick(int timeout) {
     multiplexer_->wait(timeout);
+
+    // New client 
     if (multiplexer_->ready(socket.fd()))
         accept_client_(socket.fd());
 
+    // Connected clients messages
     for (auto &[fd, conn] : connections)
         if (multiplexer_->ready(fd)) {
             // Check for handshake based transport implementations 
@@ -60,8 +63,13 @@ void Server::tick(int timeout) {
     disconnected_fds.clear();
 }
 
-/* Accepts a new client on the listening socket, wraps the socket in a connections 
- * object along with its selected transport and protocol objects*/
+/*
+ * Accepts a new client connection and registers it:
+ *  - wraps raw socket in transport layer
+ *  - attaches protocol decoder
+ *  - stores in connection map
+ *  - registers fd with multiplexer
+ */
 void Server::accept_client_(int fd) {
     TCPSocket client_socket = TCPSocket::accept_client(fd);
 
@@ -76,9 +84,14 @@ void Server::accept_client_(int fd) {
     multiplexer_->add_fd(cfd);
 }
 
-/* Handles incoming messages for a specific client, reads data from the 
- * transport, decodes messages via the protocol, and enqueues them in the inbox. 
- * Handles client disconnection. */
+/*
+ * Handles incoming data for a single client.
+ *
+ * recv() semantics:
+ *  - n > 0  → bytes received
+ *  - n == 0 → peer closed connection
+ *  - n < 0  → error or non-blocking retry
+ */
 void Server::handle_client_(int fd) {
     ssize_t size = 4096;
     uint8_t buf[size];
@@ -115,10 +128,10 @@ Message Server::next() {
     return m;
 }
 
-/* Sends a message to a specific client. Encodes the message via the client's 
- * protocol, then writes it to the transport.
- * @param fd File descriptor of the target client.
- * @param buf Message string to send. */
+/*
+ * Sends a message to a specific client:
+ *  protocol → transport → socket
+ */
 void Server::send(int fd, const std::string &buf) {
     auto &conn = connections.at(fd);
     auto bytes = conn.protocol->encode(buf);
@@ -128,6 +141,10 @@ void Server::send(int fd, const std::string &buf) {
         throw std::runtime_error("Server: Send Failed");
 }
 
+/*
+ * Removes a client from multiplexer.
+ * Note: does NOT erase from connections immediately.
+ */
 void Server::kick(int fd) {
     multiplexer_->remove_fd((fd));
 }

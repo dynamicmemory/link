@@ -1,14 +1,3 @@
-/* NewLineProtocol implements a simple newline delimited message protocol. Each 
- * message is transmitted using the following frame format:
- *
- *     [message payload][\n]
- *
- * Responsibilities:
- * - Encode outgoing messages with a \n char at the end.
- * - Decode incoming byte streams into discrete messages.
- * - Handle partial network reads by buffering incomplete frames.
- */
-
 #include <stdexcept>
 #include <cstring>
 #include <arpa/inet.h>
@@ -18,9 +7,9 @@
 /**/
 NewLineProtocol::NewLineProtocol(uint32_t maxsize) : MAX_FRAME(maxsize) {} 
 
-/* Encodes a message for transport by adding the '\n' char to the end.
- * @param message Application message to encode.
- * @return Byte vector containing the encoded frame. */
+/*
+ * Appends newline delimiter to message
+ */
 std::vector<uint8_t> NewLineProtocol::encode(const std::string &message) {
     if (message.size() > MAX_FRAME)
         throw std::runtime_error("Message exceeds maximum allowed size");
@@ -33,12 +22,11 @@ std::vector<uint8_t> NewLineProtocol::encode(const std::string &message) {
     return data;
 } 
 
-/* Processes incoming data from the network. This function accumulates recieved 
- * bytes into an internal buffer until a complete frame is available using a 
- * newline char as the control.
- *
- * @param data Pointer to newly received bytes.
- * @param len  Number of bytes received from the transport. */
+/*
+ * Incremental decode using delimiter search:
+ *  - append incoming bytes
+ *  - extract messages when '\n' is found
+ */
 void NewLineProtocol::decode(const uint8_t *data, size_t len) {
     buff_.insert(buff_.end(), data, data+len);
 
@@ -75,16 +63,10 @@ std::string NewLineProtocol::return_message() {
 
 // TODO: Review Protocol interface, perhaps remove these two as mandatory and 
 //       implement in protocols where needed.
-/* Not used in newline
- * @param data Pointer to the buffer where the encoded length will be written.
- * @param len  Payload size in bytes. */
 void NewLineProtocol::encode_length(uint8_t *data, uint32_t len) {
 }
-
-/* Not used in newline 
- * @param data Pointer to the buffer containing the length prefix.
- * @return Decoded payload length. */
 uint32_t NewLineProtocol::decode_length(uint8_t *data) {
     uint32_t place_holder;
     return place_holder;
 }
+

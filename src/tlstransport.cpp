@@ -1,10 +1,6 @@
 // TODO: Add configurable path for certs so user can provide there own.
 // TODO: Handle points on shutdown
 
-/* TLS transport over non-blocking TCP sockets using OpenSSL. Wraps a TCPSocket 
- * object and performs the TLS handshake, encryption and decryption for messages.
- * The handshake is non-blocking as to work with multiplexing layer, its progressed 
- * through is_ready().*/
 #include "tlstransport.hpp"
 #include <stdexcept>
 #include <fcntl.h>
@@ -13,7 +9,6 @@
 SSL_CTX *TLSTransport::server_ctx_ = nullptr;
 SSL_CTX *TLSTransport::client_ctx_ = nullptr;
 
-/* Initialises TLS context, binds socket and prepares for handshake*/
 TLSTransport::TLSTransport(TCPSocket socket, bool server) : 
     socket_(std::move(socket)), server_(server) {
 
@@ -26,8 +21,8 @@ TLSTransport::TLSTransport(TCPSocket socket, bool server) :
         server_ctx_ = ::SSL_CTX_new(TLS_server_method());
         client_ctx_ = ::SSL_CTX_new(TLS_client_method());
 
-        ::SSL_CTX_use_certificate_file(server_ctx_, "./certs/server.crt", SSL_FILETYPE_PEM);
-        ::SSL_CTX_use_PrivateKey_file(server_ctx_, "./certs/server.key", SSL_FILETYPE_PEM);
+        ::SSL_CTX_use_certificate_file(server_ctx_, "./server_cert/server.crt", SSL_FILETYPE_PEM);
+        ::SSL_CTX_use_PrivateKey_file(server_ctx_, "./server_cert/server.key", SSL_FILETYPE_PEM);
     }
 
     SSL_CTX *ctx = server_ ? server_ctx_: client_ctx_;
@@ -49,7 +44,6 @@ TLSTransport::~TLSTransport() {
     }
 }
 
-/**/
 int TLSTransport::fd() const { return socket_.fd();}
 
 // TODO: The return type is bool, does this even make sense?
@@ -96,8 +90,7 @@ ssize_t TLSTransport::recieve(uint8_t *buf, size_t n) {
     throw std::runtime_error("SSL Read failed");
 }
 
-// TODO: Can return void if new solution works
-/* Progress TLS handshake, requires multiple calls, returns true when complete*/
+
 bool TLSTransport::do_handshake() {
     int ret = (server_) ? ::SSL_accept(ssl_) : ::SSL_connect(ssl_); 
 
@@ -131,7 +124,9 @@ bool TLSTransport::is_ready() {
     return handshake_complete_;
 }
 
-/**/
+/*
+ * Manual certificate comparison (non-standard verification)
+ */
 void TLSTransport::verify_server_cert(const std::string &client_cpy) {
     X509 *cert = SSL_get_peer_certificate(ssl_);
     if (!cert) throw std::runtime_error("This server has no certificate");
